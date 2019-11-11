@@ -198,8 +198,8 @@ gpgcheck=1
 gpgkey=https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
 EOF
    if [[ $worker == "false" ]]
-      yum install kubeadm -y
    then
+      yum install kubeadm -y
    fi
    echo "installing the packages"
    yum -y install kubelet apt-transport-https ca-certificates curl software-properties-common python3-pip virtualenv python3-setuptools

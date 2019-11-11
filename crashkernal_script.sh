@@ -2,7 +2,12 @@
 
 set -e
 
+if [[ -z $1 ]]
+then
+crashkernel="512M"
+else
 crashkernel=$1
+fi
 
 dep_install(){
 	if [[ -z  `rpm -qa | grep $1` ]]

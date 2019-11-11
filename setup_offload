@@ -184,12 +184,11 @@ enabled=1
 gpgcheck=1
 gpgkey=https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
 EOF
-   yum install kubelet -y
    if [[ $worker == "false" ]]
       yum install kubeadm -y
    then
    fi
-   yum -y install apt-transport-https ca-certificates curl software-properties-common python3-pip virtualenv python3-setuptools
+   yum -y install kubelet apt-transport-https ca-certificates curl software-properties-common python3-pip virtualenv python3-setuptools
 }
 
 docker_install(){
@@ -211,6 +210,17 @@ init_kubadmin(){
 
 }
 
+ovn_cni_setup(){
+   git clone https://github.com/ovn-org/ovn-kubernetes.git
+   cd ovn-kubernetes/
+   git checkout 7ae417ea9922bad43c2d575e39e2ebae9962d2a5
+   cd go-controller/
+   make
+   make install
+   echo "{\"cniVersion\":\"0.3.1\", \"name\":\"ovn-kubernetes\", \"type\":\"ovn-k8s-cni-overlay\"}" > /etc/cni/net.d/10-ovn-kubernetes.conf
+   systemctl restart kubelet
+}
+
 ##################################################
 ##################################################
 ###################   Main   #####################
@@ -224,6 +234,7 @@ cnis_install
 kubernetes_install
 docker_install
 init_kubadmin
+ovn_cni_setup
 
 
 

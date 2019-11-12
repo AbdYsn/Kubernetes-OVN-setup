@@ -9,13 +9,13 @@ else
 crashkernel=$1
 fi
 
-dep_install(){
-	if [[ -z  `rpm -qa | grep $1` ]]
+kexec_install(){
+	if [[ -z  `rpm -qa | grep "kexec-tools"` ]]
 	then
-		yum install $1
-		echo "installed $1"
+		yum install kexec-tools &
+		echo "installed kexec-tools"
 	else
-		echo "$1 is already installed"
+		echo "kexec-tools is already installed"
 	fi
 }
 
@@ -23,13 +23,13 @@ set_crashkernel(){
 	echo "setting crashkernal to $crashkernel"
 	if [[ -n `cat /etc/default/grub | grep -o crashkernel=[0-9a-zA-Z]*" "` ]]
 	then
-        	sed -i -e s/crashkernel=[0-9a-zA-Z]*" "/"crashkernel=$crashkernel "/ /etc/default/grub
+        	sed -i -e s/crashkernel=[0-9a-zA-Z]*" "/"crashkernel=$1 "/ /etc/default/grub
 	else
-        	sed -i -e s/"GRUB_CMDLINE_LINUX=\""/"GRUB_CMDLINE_LINUX=\"crashkernel=$crashkernel "/ /etc/default/grub
+        	sed -i -e s/"GRUB_CMDLINE_LINUX=\""/"GRUB_CMDLINE_LINUX=\"crashkernel=$1 "/ /etc/default/grub
 	fi
 }
 
-dep_install kexec-tools
-set_crashkernel 
+kexec_install
+set_crashkernel $crashkernel
 grub2-mkconfig -o /boot/grub2/grub.cfg
 

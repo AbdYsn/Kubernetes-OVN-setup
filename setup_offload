@@ -4,10 +4,11 @@ set -e
 
 interface=""
 num_vf=""
-worker="false"
+token_path=""
 hostname=""
 hostip=""
 no_deps="false"
+
 
 ##################################################
 ##################################################
@@ -30,8 +31,9 @@ while test $# -gt 0; do
       shift
       ;;
 
-   --worker| -w)
-      worker="true"
+   --token| -t)
+      token_path=$2
+      shift
       shift
       ;;
    --hostname)
@@ -57,19 +59,20 @@ setup_offload [options]: set up a kubernetes kubeadm environment with offloading
 
 options:
  
---interface | -i)		Specify the interface to enable the offloading on.
+--interface | -i) <interface>		Specify the interface to enable the offloading on.
 
-   --num-vf| -v)		Specify the number of vfs to be created on the interface
+   --num-vf| -v) <vfs number>		Specify the number of vfs to be created on the interface
 
-   --worker| -w)		A flag to indicate that this is a worker host, so that it will join 
-				a cluster instead of creating a one.
+   --token| -t) <cluster token>		An option to indicate that this is a worker host, so that it will join 
+					a cluster instead of creating one, pass to it the path to the cluster
+					token.
    
-   --hostname)			The hostname to use for the cluster creating
+   --hostname) <cluster hostname>	The hostname to use for the cluster creating
 
-   --ip)			The ip of the host
+   --ip) <ip of cluster admin>		The ip of the admin host (master)
 
-   --no-deps)			Do not install the dependencies, use this only if you have ran the 
-				command befor
+   --no-deps)				Do not install the dependencies, use this only if you have ran the 
+					command before
 
 "
       exit 0
@@ -122,6 +125,19 @@ then
    echo "you can provide one using the option --hostname"
    hostname=`hostname -f`
    echo "the hostname that will be used is: $hostname"
+fi
+
+if [[ -n $token_path ]]
+then
+   if [[ -f $token_path]]
+   then
+      echo "a token was passed, this host will be configured"\
+           " as a worker"
+   else
+      echo "$token_path: no such file"
+      echo "exitting ...."
+      exit 1
+   fi
 fi
 
 ##################################################
@@ -218,7 +234,7 @@ enabled=1
 gpgcheck=1
 gpgkey=https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
 EOF
-   if [[ $worker == "false" ]]
+   if [[ -z $token_path ]]
    then
       yum install kubeadm -y &
    fi
@@ -243,7 +259,7 @@ init_kubadmin(){
    echo "initializzing kubelete"
    echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
    swapoff -a
-   if [[ $worker == "false" ]]
+   if [[ -z $token_path ]]
    then 
    	kubeadm init --apiserver-advertise-address=$hostip --node-name=$hostname  --skip-phases addon/kube-proxy --pod-network-cidr 192.168.0.0/16 --service-cidr 10.90.0.0/16
         export KUBECONFIG=/etc/kubernetes/admin.conf
@@ -251,7 +267,7 @@ init_kubadmin(){
         sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
         sudo chown $(id -u):$(id -g) $HOME/.kube/config
    else
-	#join the cluster
+	kubeadm join --discovery-file $token_path
    fi
 }
 

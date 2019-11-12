@@ -7,6 +7,7 @@ num_vf=""
 worker="false"
 hostname=""
 hostip=""
+no_deps="false"
 
 ##################################################
 ##################################################
@@ -44,11 +45,36 @@ while test $# -gt 0; do
       shift
       shift
       ;;
+   
+   --no-deps)
+      no_deps="true"
+      shift
+      ;;
 
    --help | -h)
-      echo ""
+      echo "
+setup_offload [options]: set up a kubernetes kubeadm environment with offloading enabled on the host machine.
+
+options:
+ 
+--interface | -i)		Specify the interface to enable the offloading on.
+
+   --num-vf| -v)		Specify the number of vfs to be created on the interface
+
+   --worker| -w)		A flag to indicate that this is a worker host, so that it will join 
+				a cluster instead of creating a one.
+   
+   --hostname)			The hostname to use for the cluster creating
+
+   --ip)			The ip of the host
+
+   --no-deps)			Do not install the dependencies, use this only if you have ran the 
+				command befor
+
+"
       exit 0
       ;;
+   
    *)
       echo "No such option!!"
       echo "Exitting ...."
@@ -109,12 +135,7 @@ enable_switchdev(){
    # Configuring num of vfs for the interface
    echo "Configuring num of vfs for the interface"
    vendor_id="$(cat /sys/class/net/$interface/device/vendor)"
-   if [ "$(cat /sys/class/net/$interface/device/sriov_numvfs)" == "0" ]
-   then
-     echo $num_vf >/sys/class/net/$interface/device/sriov_numvfs
-   else
-     exit 0
-   fi
+   echo $num_vf >/sys/class/net/$interface/device/sriov_numvfs
    
    # Unbinding the vfs for mellanox interfaces
    echo "Unbinding the vfs for mellanox interfaces"
@@ -126,7 +147,6 @@ enable_switchdev(){
        echo "$pci" > /sys/bus/pci/drivers/mlx5_core/unbind
      done
    fi
-   
    
    # Moving the interface to switchdev mode
    echo "Moving the interface to switchdev mode"
@@ -157,6 +177,7 @@ golang_install(){
    echo "installing golang"
    echo "installing deps"
    yum install wget  git -y
+  
    echo "installing golang"
    wget https://dl.google.com/go/go1.12.12.linux-amd64.tar.gz 
    tar -C /usr/local -xzf go1.12.12.linux-amd64.tar.gz
@@ -201,6 +222,7 @@ EOF
    then
       yum install kubeadm -y
    fi
+  
    echo "installing the packages"
    yum -y install kubelet apt-transport-https ca-certificates curl software-properties-common python3-pip virtualenv python3-setuptools
 }
@@ -210,6 +232,7 @@ docker_install(){
    echo "installing deps"
    yum install -y yum-utils device-mapper-persistent-data lvm2 mstflint bind-utils
    yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+   
    echo "installing and running docker"
    yum install -y docker-ce docker-ce-cli containerd.io
    systemctl start docker
@@ -252,11 +275,14 @@ ovn_cni_setup(){
 ##################################################
 
 
+if [[ $no_deps == "false" ]]
+then
+   golang_install
+   cnis_install
+   kubernetes_install
+   docker_install
+fi
 enable_switchdev
-golang_install
-cnis_install
-kubernetes_install
-docker_install
 init_kubadmin
 ovn_cni_setup
 

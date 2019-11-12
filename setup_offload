@@ -219,8 +219,13 @@ docker_install(){
 init_kubadmin(){
    echo "initializzing kubelete"
    echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
-   swapoff -a 
-   kubeadm init --apiserver-advertise-address=$hostip --node-name=$hostname  --skip-phases addon/kube-proxy --pod-network-cidr 192.168.0.0/16 --service-cidr 10.90.0.0/16
+   swapoff -a
+   if [[ $worker == "false" ]]
+   then 
+   	kubeadm init --apiserver-advertise-address=$hostip --node-name=$hostname  --skip-phases addon/kube-proxy --pod-network-cidr 192.168.0.0/16 --service-cidr 10.90.0.0/16
+   else
+	#join the cluster
+   fi
    export KUBECONFIG=/etc/kubernetes/admin.conf
    mkdir -p $HOME/.kube
    sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config

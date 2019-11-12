@@ -23,11 +23,11 @@ kexec_install(){
 
 set_crashkernel(){
 	echo "setting crashkernal to $crashkernel"
-	if [[ -n `cat grub | grep -o crashkernel=[0-9a-zA-Z]*" "` ]]
+	if [[ -n `cat /etc/default/grub | grep -o crashkernel=[0-9a-zA-Z]*" "` ]]
 	then
-        	sed -i -e s/crashkernel=[0-9a-zA-Z]*" "/"crashkernel=$1 "/ grub
+        	sed -i -e s/crashkernel=[0-9a-zA-Z]*" "/"crashkernel=$1 "/ /etc/default/grub
 	else
-        	sed -i -e s/"GRUB_CMDLINE_LINUX=\""/"GRUB_CMDLINE_LINUX=\"crashkernel=$1 "/ grub
+        	sed -i -e s/"GRUB_CMDLINE_LINUX=\""/"GRUB_CMDLINE_LINUX=\"crashkernel=$1 "/ /etc/default/grub
 	fi
 	echo "Done"
 }

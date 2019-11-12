@@ -176,11 +176,11 @@ enable_switchdev(){
 golang_install(){
    echo "installing golang"
    echo "installing deps"
-   yum install wget  git -y
+   yum install wget  git -y &
   
    echo "installing golang"
-   wget https://dl.google.com/go/go1.12.12.linux-amd64.tar.gz 
-   tar -C /usr/local -xzf go1.12.12.linux-amd64.tar.gz
+   wget https://dl.google.com/go/go1.12.12.linux-amd64.tar.gz &
+   tar -C /usr/local -xzf go1.12.12.linux-amd64.tar.gz &
    cat >> ~/.bashrc <<EOF
 export GOPATH=/root/go                                                                                                             
 export PATH=$PATH:/usr/local/go/bin
@@ -194,17 +194,17 @@ EOF
 
 cnis_install(){
    echo "installing containernetworking"
-   git clone https://github.com/containernetworking/plugins $GOPATH/src/github.com/containernetworking/plugins
-   $GOPATH/src/github.com/containernetworking/plugins/build_linux.sh
+   git clone https://github.com/containernetworking/plugins $GOPATH/src/github.com/containernetworking/plugins &
+   $GOPATH/src/github.com/containernetworking/plugins/build_linux.sh &
    cp $GOPATH/src/github.com/containernetworking/plugins/bin/* /opt/cni/bin 
    
    echo "installing intel sriov-cni"
-   git clone https://github.com/intel/sriov-cni $GOPATH/src/github.com/intel/sriov-cni
+   git clone https://github.com/intel/sriov-cni $GOPATH/src/github.com/intel/sriov-cni &
    cd $GOPATH/src/github.com/intel/sriov-cni
-   make build
+   make build &
 
    echo "cloning sriov-network-device-plugin"
-   git clone https://github.com/intel/sriov-network-device-plugin $GOPATH/src/github.com/intel/sriov-network-device-plugin
+   git clone https://github.com/intel/sriov-network-device-plugin $GOPATH/src/github.com/intel/sriov-network-device-plugin &
 }
 
 kubernetes_install(){
@@ -220,21 +220,21 @@ gpgkey=https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
 EOF
    if [[ $worker == "false" ]]
    then
-      yum install kubeadm -y
+      yum install kubeadm -y &
    fi
   
-   echo "installing the packages"
-   yum -y install kubelet apt-transport-https ca-certificates curl software-properties-common python3-pip virtualenv python3-setuptools
+   echo "installing the packages" 
+   yum -y install kubelet apt-transport-https ca-certificates curl software-properties-common python3-pip virtualenv python3-setuptools &
 }
 
 docker_install(){
    echo "installing the docker"
    echo "installing deps"
-   yum install -y yum-utils device-mapper-persistent-data lvm2 mstflint bind-utils
-   yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+   yum install -y yum-utils device-mapper-persistent-data lvm2 mstflint bind-utils &
+   yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo &
    
    echo "installing and running docker"
-   yum install -y docker-ce docker-ce-cli containerd.io
+   yum install -y docker-ce docker-ce-cli containerd.io &
    systemctl start docker
    systemctl enable docker
 }
@@ -246,24 +246,23 @@ init_kubadmin(){
    if [[ $worker == "false" ]]
    then 
    	kubeadm init --apiserver-advertise-address=$hostip --node-name=$hostname  --skip-phases addon/kube-proxy --pod-network-cidr 192.168.0.0/16 --service-cidr 10.90.0.0/16
+        export KUBECONFIG=/etc/kubernetes/admin.conf
+        mkdir -p $HOME/.kube
+        sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+        sudo chown $(id -u):$(id -g) $HOME/.kube/config
    else
 	#join the cluster
    fi
-   export KUBECONFIG=/etc/kubernetes/admin.conf
-   mkdir -p $HOME/.kube
-   sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
-   sudo chown $(id -u):$(id -g) $HOME/.kube/config
-
 }
 
 ovn_cni_setup(){
    echo "installing kubernetes ovn cni"
-   git clone https://github.com/ovn-org/ovn-kubernetes.git
+   git clone https://github.com/ovn-org/ovn-kubernetes.git &
    cd ovn-kubernetes/
    git checkout 7ae417ea9922bad43c2d575e39e2ebae9962d2a5
    cd go-controller/
-   make
-   make install
+   make &
+   make install &
    echo "{\"cniVersion\":\"0.3.1\", \"name\":\"ovn-kubernetes\", \"type\":\"ovn-k8s-cni-overlay\"}" > /etc/cni/net.d/10-ovn-kubernetes.conf
    systemctl restart kubelet
 }
@@ -282,6 +281,7 @@ then
    kubernetes_install
    docker_install
 fi
+
 enable_switchdev
 init_kubadmin
 ovn_cni_setup

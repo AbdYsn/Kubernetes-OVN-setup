@@ -3,7 +3,8 @@
 set -e
 set -x
 
-if [[ -z $1 ]]
+#check if the input is either empty, has a letter in the middle of numbers, or only numbers
+if [[ -z $1 ]] || [[ -n `echo $1 | grep -E [a-zA-Z].*[0-9]+` ]] || [[ -n `echo $1 | grep -E -v [a-zA-Z]` ]]
 then
 crashkernel="512M"
 else
@@ -11,7 +12,7 @@ crashkernel=$1
 fi
 
 kexec_install(){
-	if [[ -z  `rpm -qa | grep "kexec-tools"` ]]
+	if [[ -z `rpm -qa | grep "kexec-tools"` ]]
 	then
 		yum install kexec-tools &
 		echo "installed kexec-tools"
@@ -22,16 +23,17 @@ kexec_install(){
 
 set_crashkernel(){
 	echo "setting crashkernal to $crashkernel"
-        re_expression="crashkernel=[0-9a-zA-Z]*\" \""
-	if [[ -n `cat /etc/default/grub | grep -o $re_expression` ]]
+	if [[ -n `cat grub | grep -o crashkernel=[0-9a-zA-Z]*" "` ]]
 	then
-        	sed -i -e s/$re_expression/"crashkernel=$1 "/ /etc/default/grub
+        	sed -i -e s/crashkernel=[0-9a-zA-Z]*" "/"crashkernel=$1 "/ grub
 	else
-        	sed -i -e s/"GRUB_CMDLINE_LINUX=\""/"GRUB_CMDLINE_LINUX=\"crashkernel=$1 "/ /etc/default/grub
+        	sed -i -e s/"GRUB_CMDLINE_LINUX=\""/"GRUB_CMDLINE_LINUX=\"crashkernel=$1 "/ grub
 	fi
+	echo "Done"
 }
 
 kexec_install
 set_crashkernel $crashkernel
 grub2-mkconfig -o /boot/grub2/grub.cfg
-
+echo ""
+echo "You need to restart the machine for the changes to take effect"

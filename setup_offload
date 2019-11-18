@@ -1,13 +1,15 @@
 #!/bin/bash
 
 set -e
+set -x
 
 interface=""
 num_vf=""
-token_path=""
+token=""
 hostname=""
 hostip=""
 no_deps="false"
+ca_hash=""
 
 
 ##################################################
@@ -32,10 +34,13 @@ while test $# -gt 0; do
       ;;
 
    --token| -t)
-      token_path=$2
+      token=$2
+      ca_hash=$3
+      shift
       shift
       shift
       ;;
+
    --hostname)
       hostname=$2
       shift
@@ -116,6 +121,12 @@ then
    echo "for more informaton see the help menu --help or -h"
    echo "Exitting ...."
    exit 1
+else
+   hostname_check=`cat /etc/hosts | grep $hostname`
+   if [[ -z hostname_check ]]
+   then
+      echo "$hostip $hostname" > /etc/hosts
+   fi 
 fi
 
 if [[ -z $hostname ]]
@@ -127,18 +138,6 @@ then
    echo "the hostname that will be used is: $hostname"
 fi
 
-if [[ -n $token_path ]]
-then
-   if [[ -f $token_path]]
-   then
-      echo "a token was passed, this host will be configured"\
-           " as a worker"
-   else
-      echo "$token_path: no such file"
-      echo "exitting ...."
-      exit 1
-   fi
-fi
 
 ##################################################
 ##################################################
@@ -192,11 +191,11 @@ enable_switchdev(){
 golang_install(){
    echo "installing golang"
    echo "installing deps"
-   yum install wget  git -y &
+   yum install wget  git -y
   
    echo "installing golang"
-   wget https://dl.google.com/go/go1.12.12.linux-amd64.tar.gz &
-   tar -C /usr/local -xzf go1.12.12.linux-amd64.tar.gz &
+   wget https://dl.google.com/go/go1.12.12.linux-amd64.tar.gz
+   tar -C /usr/local -xzf go1.12.12.linux-amd64.tar.gz
    cat >> ~/.bashrc <<EOF
 export GOPATH=/root/go                                                                                                             
 export PATH=$PATH:/usr/local/go/bin
@@ -210,17 +209,17 @@ EOF
 
 cnis_install(){
    echo "installing containernetworking"
-   git clone https://github.com/containernetworking/plugins $GOPATH/src/github.com/containernetworking/plugins &
-   $GOPATH/src/github.com/containernetworking/plugins/build_linux.sh &
+   git clone https://github.com/containernetworking/plugins $GOPATH/src/github.com/containernetworking/plugins
+   $GOPATH/src/github.com/containernetworking/plugins/build_linux.sh
    cp $GOPATH/src/github.com/containernetworking/plugins/bin/* /opt/cni/bin 
    
    echo "installing intel sriov-cni"
-   git clone https://github.com/intel/sriov-cni $GOPATH/src/github.com/intel/sriov-cni &
+   git clone https://github.com/intel/sriov-cni $GOPATH/src/github.com/intel/sriov-cni
    cd $GOPATH/src/github.com/intel/sriov-cni
-   make build &
+   make build
 
    echo "cloning sriov-network-device-plugin"
-   git clone https://github.com/intel/sriov-network-device-plugin $GOPATH/src/github.com/intel/sriov-network-device-plugin &
+   git clone https://github.com/intel/sriov-network-device-plugin $GOPATH/src/github.com/intel/sriov-network-device-plugin
 }
 
 kubernetes_install(){
@@ -234,23 +233,19 @@ enabled=1
 gpgcheck=1
 gpgkey=https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
 EOF
-   if [[ -z $token_path ]]
-   then
-      yum install kubeadm -y &
-   fi
   
    echo "installing the packages" 
-   yum -y install kubelet apt-transport-https ca-certificates curl software-properties-common python3-pip virtualenv python3-setuptools &
+   yum -y install kubelet apt-transport-https ca-certificates curl software-properties-common python3-pip virtualenv python3-setuptools kubeadm
 }
 
 docker_install(){
    echo "installing the docker"
    echo "installing deps"
-   yum install -y yum-utils device-mapper-persistent-data lvm2 mstflint bind-utils &
-   yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo &
+   yum install -y yum-utils device-mapper-persistent-data lvm2 mstflint bind-utils
+   yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
    
    echo "installing and running docker"
-   yum install -y docker-ce docker-ce-cli containerd.io &
+   yum install -y docker-ce docker-ce-cli containerd.io
    systemctl start docker
    systemctl enable docker
 }
@@ -259,15 +254,15 @@ init_kubadmin(){
    echo "initializzing kubelete"
    echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
    swapoff -a
-   if [[ -z $token_path ]]
+   if [[ -z $token ]]
    then 
    	kubeadm init --apiserver-advertise-address=$hostip --node-name=$hostname  --skip-phases addon/kube-proxy --pod-network-cidr 192.168.0.0/16 --service-cidr 10.90.0.0/16
-        export KUBECONFIG=/etc/kubernetes/admin.conf
-        mkdir -p $HOME/.kube
-        sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
-        sudo chown $(id -u):$(id -g) $HOME/.kube/config
+      export KUBECONFIG=/etc/kubernetes/admin.conf
+      mkdir -p $HOME/.kube
+      sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+      sudo chown $(id -u):$(id -g) $HOME/.kube/config
    else
-	kubeadm join --discovery-file $token_path
+      kubeadm join --token token #ca_cert_hash ca_hash 
    fi
 }
 
@@ -277,10 +272,20 @@ ovn_cni_setup(){
    cd ovn-kubernetes/
    git checkout 7ae417ea9922bad43c2d575e39e2ebae9962d2a5
    cd go-controller/
-   make &
-   make install &
+   make 
+   make install 
    echo "{\"cniVersion\":\"0.3.1\", \"name\":\"ovn-kubernetes\", \"type\":\"ovn-k8s-cni-overlay\"}" > /etc/cni/net.d/10-ovn-kubernetes.conf
    systemctl restart kubelet
+}
+
+firewall_allow(){
+   # the first inout is the protocol and the second input is the port
+   sudo iptables -I INPUT 1 -p $1 --dport $2 -j ACCEPT
+}
+
+firewall_handling(){
+   systemctl stop firewalld
+   systemctl disable firewalld
 }
 
 ##################################################
@@ -298,6 +303,7 @@ then
    docker_install
 fi
 
+firewall_handling
 enable_switchdev
 init_kubadmin
 ovn_cni_setup

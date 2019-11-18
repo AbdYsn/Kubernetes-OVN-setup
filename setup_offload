@@ -114,6 +114,15 @@ then
    exit 1
 fi
 
+if [[ -z $hostname ]]
+then
+   echo "The hostname was not provided !!!"
+   echo "Will use the machine hostname"
+   echo "you can provide one using the option --hostname"
+   hostname=`hostname -f`
+   echo "the hostname that will be used is: $hostname"
+fi
+
 if [[ -z $hostip ]]
 then
    echo "The ip address was not provided !!!"
@@ -122,20 +131,10 @@ then
    echo "Exitting ...."
    exit 1
 else
-   hostname_check=`cat /etc/hosts | grep $hostname`
-   if [[ -z hostname_check ]]
+   if [[ -z "`cat /etc/hosts | grep $hostname`" ]]
    then
-      echo "$hostip $hostname" > /etc/hosts
+      echo "$hostip $hostname" >> /etc/hosts
    fi 
-fi
-
-if [[ -z $hostname ]]
-then
-   echo "The hostname was not provided !!!"
-   echo "Will use the machine hostname"
-   echo "you can provide one using the option --hostname"
-   hostname=`hostname -f`
-   echo "the hostname that will be used is: $hostname"
 fi
 
 if [[ -n token ]]
@@ -235,14 +234,14 @@ cnis_install(){
 kubernetes_install(){
    echo "installing kubernetes"
    echo "preparing the repo"
-   sudo tee -a /etc/yum.repos.d/kubernetes.repo <<EOF
+   echo "
 [kubernets-stable]
 name=Kuberenets
 baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
 enabled=1
 gpgcheck=1
 gpgkey=https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
-EOF
+" > /etc/yum.repos.d/kubernetes.repo
   
    echo "installing the packages" 
    yum -y install kubelet apt-transport-https ca-certificates curl software-properties-common python3-pip virtualenv python3-setuptools kubeadm
@@ -272,13 +271,14 @@ init_kubadmin(){
       sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
       sudo chown $(id -u):$(id -g) $HOME/.kube/config
    else
-      kubeadm join --token token #ca_cert_hash ca_hash 
+      kubeadm join "$hostip:6443" --token $token --discovery-token-ca-cert-hash $ca_hash 
    fi
 }
 
 ovn_cni_setup(){
    echo "installing kubernetes ovn cni"
-   git clone https://github.com/ovn-org/ovn-kubernetes.git &
+   cd $HOME
+   git clone https://github.com/ovn-org/ovn-kubernetes.git 
    cd ovn-kubernetes/
    git checkout 7ae417ea9922bad43c2d575e39e2ebae9962d2a5
    cd go-controller/
@@ -298,6 +298,10 @@ firewall_handling(){
    systemctl disable firewalld
 }
 
+hostname_change(){
+hostnamectl set-hostname $hostname
+}
+
 ##################################################
 ##################################################
 ###################   Main   #####################
@@ -308,11 +312,13 @@ firewall_handling(){
 if [[ $no_deps == "false" ]]
 then
    golang_install
+   source ~/.bashrc
    cnis_install
    kubernetes_install
    docker_install
 fi
 
+hostname_change
 firewall_handling
 enable_switchdev
 init_kubadmin

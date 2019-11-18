@@ -138,6 +138,16 @@ then
    echo "the hostname that will be used is: $hostname"
 fi
 
+if [[ -n token ]]
+then 
+   if [[ -z ca_hash ]]
+   then 
+      echo "a token to join the cluster was provided \
+            but no ca_cert hash was provided, please provide\
+            one, EXITTING ....."
+      exit 1
+   fi
+fi
 
 ##################################################
 ##################################################

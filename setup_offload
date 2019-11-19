@@ -280,7 +280,7 @@ ovn_cni_setup(){
    cd $HOME
    git clone https://github.com/ovn-org/ovn-kubernetes.git 
    cd ovn-kubernetes/
-   git checkout 7ae417ea9922bad43c2d575e39e2ebae9962d2a5
+   git checkout 8ea23e02f2852372f42560f25fe54b73180e0d03
    cd go-controller/
    make 
    make install 

@@ -155,114 +155,62 @@ fi
 ##################################################
 
 
-enable_switchdev(){
-   # Configuring num of vfs for the interface
-   echo "Configuring num of vfs for the interface"
-   vendor_id="$(cat /sys/class/net/$interface/device/vendor)"
-   echo $num_vf >/sys/class/net/$interface/device/sriov_numvfs
-   
-   # Unbinding the vfs for mellanox interfaces
-   echo "Unbinding the vfs for mellanox interfaces"
-   if [ $vendor_id == "0x15b3" ]
-   then
-     vfs_pci_list=$(grep PCI_SLOT_NAME /sys/class/net/$interface/device/virtfn*/uevent | cut -d'=' -f2)
-     for pci in $vfs_pci_list
-     do
-       echo "$pci" > /sys/bus/pci/drivers/mlx5_core/unbind
-     done
-   fi
-   
-   # Moving the interface to switchdev mode
-   echo "Moving the interface to switchdev mode"
-   interface_pci=$(grep PCI_SLOT_NAME /sys/class/net/$interface/device/uevent | cut -d'=' -f2)
-   /usr/sbin/devlink dev eswitch set pci/"$interface_pci" mode switchdev
-   
-   #/usr/sbin/ifup $interface
-   echo "ifup $interface"
-   if [[ "$(/usr/sbin/devlink dev eswitch show pci/"$interface_pci")" =~ "mode switchdev" ]]
-   then
-     echo "PCI device $interface_pci set to mode switchdev."
-   else
-     echo "Failed to set PCI device $interface_pci to mode switchdev."
-     exit 1
-   fi
-   interface_device=$(cat /sys/class/net/$interface/device/device)
-   if [ "$interface_device" == "0x1013" ] || [ "$interface_device" == "0x1015" ]
-   then
-     /usr/sbin/devlink dev eswitch set pci/"$interface_pci" inline-mode transport
-   fi
-   
-   # Enabling hw-tc-offload for the interface
-   echo "Enabling hw-tc-offload for the interface"
-   /usr/sbin/ethtool -K $interface hw-tc-offload on
-}
 
 golang_install(){
-   echo "installing golang"
-   echo "installing deps"
    yum install wget  git -y
   
    echo "installing golang"
    wget https://dl.google.com/go/go1.12.12.linux-amd64.tar.gz
    tar -C /usr/local -xzf go1.12.12.linux-amd64.tar.gz
-   cat >> ~/.bashrc <<EOF
-export GOPATH=/root/go                                                                                                             
-export PATH=$PATH:/usr/local/go/bin
-export KUBECONFIG=/etc/kubernetes/admin.conf 
-EOF
-   source ~/.bashrc
-   mkdir -p /etc/cni/net.d/ 
-   mkdir -p /opt/cni/bin/
-   mkdir -p /root/go/src/github.com/
+   
+   check_dir /etc/cni/net.d/
+   check_dir /opt/cni/bin/
+   check_dir /root/go/src/github.com/
+}
+
+check_dir(){
+   if [[ ! -d $1 ]]
+   then
+      mkdir -p $1
+   fi 
 }
 
 cnis_install(){
-   echo "installing containernetworking"
-   git clone https://github.com/containernetworking/plugins $GOPATH/src/github.com/containernetworking/plugins
-   $GOPATH/src/github.com/containernetworking/plugins/build_linux.sh
-   cp $GOPATH/src/github.com/containernetworking/plugins/bin/* /opt/cni/bin 
-   
-   echo "installing intel sriov-cni"
-   git clone https://github.com/intel/sriov-cni $GOPATH/src/github.com/intel/sriov-cni
-   cd $GOPATH/src/github.com/intel/sriov-cni
-   make build
+   if [[ ! -d $GOPATH/src/github.com/containernetworking/plugins ]]
+   then
+      git clone https://github.com/containernetworking/plugins $GOPATH/src/github.com/containernetworking/plugins
+      $GOPATH/src/github.com/containernetworking/plugins/build_linux.sh
+      cp $GOPATH/src/github.com/containernetworking/plugins/bin/* /opt/cni/bin 
+   fi
 
-   echo "cloning sriov-network-device-plugin"
-   git clone https://github.com/intel/sriov-network-device-plugin $GOPATH/src/github.com/intel/sriov-network-device-plugin
+   if [[ ! -d $GOPATH/src/github.com/intel/sriov-cni ]]
+   then
+      git clone https://github.com/intel/sriov-cni $GOPATH/src/github.com/intel/sriov-cni
+      cd $GOPATH/src/github.com/intel/sriov-cni
+      make build
+   fi
+
+   if [[ ! -d $GOPATH/src/github.com/intel/sriov-network-device-plugin ]]
+   then
+      git clone https://github.com/intel/sriov-network-device-plugin $GOPATH/src/github.com/intel/sriov-network-device-plugin
+   fi
 }
 
-kubernetes_install(){
-   echo "installing kubernetes"
-   echo "preparing the repo"
-   echo "
-[kubernets-stable]
-name=Kuberenets
-baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
-enabled=1
-gpgcheck=1
-gpgkey=https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
-" > /etc/yum.repos.d/kubernetes.repo
-  
-   echo "installing the packages" 
+kubernetes_install(){ 
    yum -y install kubelet apt-transport-https ca-certificates curl software-properties-common python3-pip virtualenv python3-setuptools kubeadm
 }
 
 docker_install(){
-   echo "installing the docker"
-   echo "installing deps"
    yum install -y yum-utils device-mapper-persistent-data lvm2 mstflint bind-utils
    yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
    
-   echo "installing and running docker"
    yum install -y docker-ce docker-ce-cli containerd.io
-   systemctl start docker
    systemctl enable docker
+   systemctl start docker
 }
 
 init_kubadmin(){
-   echo "initializzing kubelete"
-   echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
-   swapoff -a
+   if [[ `systemctl is-enabled openvswitch` ]]
    if [[ -z $token ]]
    then 
    	kubeadm init --apiserver-advertise-address=$hostip --node-name=$hostname  --skip-phases addon/kube-proxy --pod-network-cidr 192.168.0.0/16 --service-cidr 10.90.0.0/16

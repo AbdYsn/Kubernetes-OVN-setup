@@ -3,13 +3,10 @@
 set -e
 set -x
 
-interface=""
-num_vf=""
 token=""
 hostname=""
 hostip=""
 no_deps="false"
-ca_hash=""
 
 
 ##################################################
@@ -20,18 +17,6 @@ ca_hash=""
 
 while test $# -gt 0; do
   case "$1" in
-
-   --interface | -i)
-      interface=$2
-      shift
-      shift
-      ;;
-
-   --num-vf| -v)
-      num_vf=$2
-      shift
-      shift
-      ;;
 
    --token| -t)
       token=$2
@@ -64,11 +49,7 @@ setup_offload [options]: set up a kubernetes kubeadm environment with offloading
 
 options:
  
---interface | -i) <interface>		Specify the interface to enable the offloading on.
-
-   --num-vf| -v) <vfs number>		Specify the number of vfs to be created on the interface
-
-   --token| -t) <cluster token>		An option to indicate that this is a worker host, so that it will join 
+  --token| -t) <cluster token>		An option to indicate that this is a worker host, so that it will join 
 					a cluster instead of creating one, pass to it the path to the cluster
 					token.
    
@@ -96,23 +77,6 @@ done
 ##################################################
 ##################################################
 
-if [[ -z $interface ]]
-then
-   echo "No interface was provided !!!"
-   echo "Please provide one using the option --interface or -i"
-   echo "for more informaton see the help menu --help or -h"
-   echo "Exitting ...."
-   exit 1
-fi
-
-if [[ -z $num_vf ]]
-then
-   echo "The number of vfs was not provided !!!"
-   echo "Please provide one using the option --num_vf or -v"
-   echo "for more informaton see the help menu --help or -h"
-   echo "Exitting ...."
-   exit 1
-fi
 
 if [[ -z $hostname ]]
 then
@@ -210,7 +174,16 @@ docker_install(){
 }
 
 init_kubadmin(){
-   if [[ `systemctl is-enabled openvswitch` ]]
+   if [[ `systemctl is-enabled openvswitch` == "disabled" ]]
+   then
+      systemctl enable openvswitch
+   fi
+
+   if [[ `systemctl is-active openvswitch` == "inactive" ]]
+   then
+      systemctl start openvswitch
+   fi
+
    if [[ -z $token ]]
    then 
    	kubeadm init --apiserver-advertise-address=$hostip --node-name=$hostname  --skip-phases addon/kube-proxy --pod-network-cidr 192.168.0.0/16 --service-cidr 10.90.0.0/16
@@ -224,7 +197,6 @@ init_kubadmin(){
 }
 
 ovn_cni_setup(){
-   echo "installing kubernetes ovn cni"
    cd $HOME
    git clone https://github.com/ovn-org/ovn-kubernetes.git 
    cd ovn-kubernetes/
@@ -236,19 +208,6 @@ ovn_cni_setup(){
    systemctl restart kubelet
 }
 
-firewall_allow(){
-   # the first inout is the protocol and the second input is the port
-   sudo iptables -I INPUT 1 -p $1 --dport $2 -j ACCEPT
-}
-
-firewall_handling(){
-   systemctl stop firewalld
-   systemctl disable firewalld
-}
-
-hostname_change(){
-hostnamectl set-hostname $hostname
-}
 
 ##################################################
 ##################################################
@@ -260,17 +219,10 @@ hostnamectl set-hostname $hostname
 if [[ $no_deps == "false" ]]
 then
    golang_install
-   source ~/.bashrc
    cnis_install
    kubernetes_install
    docker_install
 fi
 
-hostname_change
-firewall_handling
-enable_switchdev
 init_kubadmin
 ovn_cni_setup
-
-
-

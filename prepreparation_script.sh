@@ -8,7 +8,6 @@ hostname=""
 hostip=""
 reload="false"
 hostname_change_flag="false"
-default_interface="enp30f0"
 pci_address=""
 
 ##################################################
@@ -43,12 +42,6 @@ while test $# -gt 0; do
       shift
       ;;
 
-   --default-interface)
-      default_interface=$2
-      shift
-      shift
-      ;;
-
    --pci-address)
       pci_address=$2
       shift
@@ -57,21 +50,20 @@ while test $# -gt 0; do
 
    --help | -h)
       echo "
-setup_offload [options]: set up a kubernetes kubeadm environment with offloading enabled on the host machine.
+prepration_script [options] --ip <master ip> --hostname <master hostname>: prepare the host by initializing some global variables\
+and setting the hostname.
 
 options:
  
---interface | -i) <interface>		Specify the interface to enable the offloading on.
+   --interface | -i) <interface>		   the name to be used to rename the netdev at the specified pci address.
    
-   --hostname) <cluster hostname>	The hostname to use for the cluster creating
+   --hostname) <cluster hostname>	The hostname of the master node
 
-   --set-hostname)
+   --set-hostname)                  aflag used to if you want to change the hostname of the machine to the specified host name
 
-   --ip) <ip of cluster admin>		The ip of the admin host (master)
+   --ip) <ip of cluster admin>		The ip of the master node
 
-   --default-interface)
-
-   --pci-address)
+   --pci-address)                   The pci address of the net device to use, it is used to change the name of the net device
 
 "
       exit 0
@@ -90,23 +82,18 @@ done
 ##################################################
 ##################################################
 
-if [[ -z $interface ]]
+if [[ -n $pci_address ]]
 then
-   echo "No interface was provided !!!"
-   echo "Please provide one using the option --interface or -i"
-   echo "for more informaton see the help menu --help or -h"
-   echo "Exitting ...."
-   exit 1
+   if [[ -z $interface ]]
+   then
+      echo "No interface was provided !!!"
+      echo "Please provide one using the option --interface or -i"
+      echo "for more informaton see the help menu --help or -h"
+      echo "Exitting ...."
+      exit 1
+   fi
 fi
 
-if [[ -z $num_vf ]]
-then
-   echo "The number of vfs was not provided !!!"
-   echo "Please provide one using the option --num_vf or -v"
-   echo "for more informaton see the help menu --help or -h"
-   echo "Exitting ...."
-   exit 1
-fi
 
 if [[ -z $hostname ]]
 then
@@ -117,14 +104,6 @@ then
    echo "the hostname that will be used is: $hostname"
 fi
 
-if [[ -z $pci_address ]]
-then
-   echo "The pci address of the interface was not provided !!!"
-   echo "Please provide one using the option --pci-address"
-   echo "for more informaton see the help menu --help or -h"
-   echo "Exitting ...."
-   exit 1
-fi
 
 ##################################################
 ##################################################
@@ -138,7 +117,7 @@ hostname_check(){
    then
       exit 1
    else
-      if [[ $hostname_change_flag ]]
+      if [[ $hostname_change_flag == "true" ]]
       then
       if [[ "`hostname`" != $hostname ]]
          then
@@ -146,7 +125,7 @@ hostname_check(){
             hostname_line="`cat /etc/hosts | grep $old_hostname`"
             if [[ -n $hostname_line ]]
             then
-               sed -i s/$hostname_line/"\#$hostname_line"/g /etc/hosts
+               sed -i "s/$hostname_line/"\#$hostname_line"/g" /etc/hosts
             fi
             hostnamectl set-hostname $hostname
          fi
@@ -160,25 +139,25 @@ hostname_check(){
 }
 
 gopath_check(){
-if [[ -z `cat ~/.bashrc | grep GOPATH` ]] || [[ -z $GOPATH ]]
+if [[ -z `cat ~/.bashrc | grep GOPATH` ]]
 then
-   cat >> ~/.bashrc <<EOF
+   sudo tee -a ~/.bashrc <<EOF
 export GOPATH=/root/go                                                                                                             
 EOF
 export GOPATH=/root/go
 fi
 
-if [[ -z `cat ~/.bashrc | grep "/usr/local/go/bin"` ]] || [[ $PATH != .*/usr/local/go/bin.* ]]
+if [[ -z `cat ~/.bashrc | grep "/usr/local/go/bin"` ]]
 then
-   cat >> ~/.bashrc <<EOF
+   sudo tee -a ~/.bashrc <<EOF
 export PATH=$PATH:/usr/local/go/bin
 EOF
 export PATH=$PATH:/usr/local/go/bin
 fi
 
-if [[ -z `cat ~/.bashrc | grep KUBECONFIG` ]] || [[ -z $KUBECONFIG ]]
+if [[ -z `cat ~/.bashrc | grep KUBECONFIG` ]
 then
-   cat >> ~/.bashrc <<EOF
+   sudo tee -a ~/.bashrc <<EOF
 export KUBECONFIG=/etc/kubernetes/admin.conf                                                                                                      
 EOF
 export KUBECONFIG=/etc/kubernetes/admin.conf
@@ -189,14 +168,14 @@ kubernetes_repo_check(){
    if [[ ! -f "/etc/yum.repos.d/kubernetes.repo" ]] || [[ -z `cat /etc/yum.repos.d/kubernetes.repo | grep \
    gpgkey=https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg` ]]
    then
-   cat >> /etc/yum.repos.d/kubernetes.repo << EOF
+   sudo tee -a /etc/yum.repos.d/kubernetes.repo <<EOF
 [kubernets-stable]
 name=Kuberenets
 baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
 enabled=1
 gpgcheck=1
 gpgkey=https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
-EOF  
+EOF
   fi
 }
 
@@ -220,15 +199,13 @@ system_args_check(){
 
    if [[ -n $swap_line ]]
    then
-      sed -i s/$swap_line/"\#$swap_line"/g /etc/fstab
+      sed -i "s/.*swap.*/\#$swap_line/g" /etc/fstab
    fi
-
    
    if [[ `systemctl is-active firewalld` != "inactive" ]] 
    then 
       systemctl stop firewalld
    fi
-
 
    if [[ `systemctl is-enabled firewalld` != "disabled" ]] 
    then 
@@ -239,39 +216,39 @@ system_args_check(){
 }
 
 interface_name_check(){
-   is_interface="false"
-   interfaces_list=`ls /sys/class/net`
-   for sys_interface in $interfaces_list;
-   do
-      if [[ $sys_interface == $default_interface ]]
-      then
-         is_interface="true"
-         break
-      fi
-   done
-
-   if [[ $is_interface == "false" ]]
+   
+   if [[ -z $pci_address ]]
    then
+      return
+   fi
+
+   old_interface_name=`ls /sys/bus/pci/devices/$pci_address/net/`
+   if [[ $old_interface_name != $interface ]]
+   then 
+      interfaces_list=`ls /sys/class/net`
       for sys_interface in $interfaces_list;
       do
-         if [[ $sys_interface != $interface ]]
+         if [[ $sys_interface == $interface ]]
          then
-            change_interface_name
-            break
+         # in this case there is an interface with the name specified, but it does not
+         # have the same pci address, the user should choose another name.
+            exit 1
          fi
       done
+      change_interface_name $pci_address $interface
    fi
+
 }
 
 change_interface_name(){
-   check_line="`cat /etc/udev/rules.d/70-persistent-ipoib.rules | grep $pci_address`"
+   check_line=`cat /etc/udev/rules.d/70-persistent-ipoib.rules | grep $1 | sed 's/\"/\\\"/g' | sed 's/\*/\\\*/g'`
    if [[ -z $check_line ]]
    then
-      echo "ACTION==\"add\", SUBSYSTEM==\"net\", DRIVERS==\"?*\" Kernel==\"$pci_address\", name==\"$default_interface\"" \
+      echo "ACTION==\"add\", SUBSYSTEM==\"net\", DRIVERS==\"?*\" Kernel==\"$1\", name==\"$2\"" \
       >> /etc/udev/rules.d/70-persistent-ipoib.rules
-   elif [[ $check_line == .*name==.* ]]
-   then
-      sed -i s/name==$default_interface//
+   else
+      new_line="ACTION==\"add\", SUBSYSTEM==\"net\", DRIVERS==\"?*\" Kernel==\"$1\", name==\"$2\""
+      sed -i "s/$check_line/$new_line/g" /etc/udev/rules.d/70-persistent-ipoib.rules
    fi
 }
 
@@ -285,3 +262,5 @@ hostname_check
 gopath_check
 kubernetes_repo_check
 system_args_check
+interface_name_check
+echo "Please source the file ~/.bashrc"

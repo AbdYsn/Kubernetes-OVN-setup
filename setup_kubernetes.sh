@@ -94,11 +94,6 @@ then
    echo "for more informaton see the help menu --help or -h"
    echo "Exitting ...."
    exit 1
-else
-   if [[ -z "`cat /etc/hosts | grep $hostname`" ]]
-   then
-      echo "$hostip $hostname" >> /etc/hosts
-   fi 
 fi
 
 if [[ -n token ]]
@@ -122,11 +117,12 @@ fi
 
 golang_install(){
    yum install wget  git -y
-  
-   echo "installing golang"
-   wget https://dl.google.com/go/go1.12.12.linux-amd64.tar.gz
-   tar -C /usr/local -xzf go1.12.12.linux-amd64.tar.gz
-   
+   if [[ -z "`go version`" ]]
+   then
+      wget https://dl.google.com/go/go1.12.12.linux-amd64.tar.gz
+      tar -C /usr/local -xzf go1.12.12.linux-amd64.tar.gz
+   fi
+
    check_dir /etc/cni/net.d/
    check_dir /opt/cni/bin/
    check_dir /root/go/src/github.com/
@@ -197,10 +193,12 @@ init_kubadmin(){
 }
 
 ovn_cni_setup(){
-   cd $HOME
-   git clone https://github.com/ovn-org/ovn-kubernetes.git 
-   cd ovn-kubernetes/
-   git checkout 8ea23e02f2852372f42560f25fe54b73180e0d03
+   if [[ ! -d ~/ovn-kubernetes/ ]]
+   then
+   	git clone https://github.com/ovn-org/ovn-kubernetes.git 
+   fi
+   cd $HOME/ovn-kubernetes/
+   git checkout 7ae417ea9922bad43c2d575e39e2ebae9962d2a5
    cd go-controller/
    make 
    make install 

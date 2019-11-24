@@ -15,12 +15,11 @@ exec 1> >(logger -s -t $(basename $1)) 2>&1
 
 # Configuring num of vfs for the interface
 vendor_id="$(cat /sys/class/net/$1/device/vendor)"
-if [ "$(cat /sys/class/net/$1/device/sriov_numvfs)" == "0" ]
+if [ "$(cat /sys/class/net/$1/device/sriov_numvfs)" != "0" ]
 then
-  echo $2 >/sys/class/net/$1/device/sriov_numvfs
-else
-  exit 0
+  echo 0 >/sys/class/net/$1/device/sriov_numvfs
 fi
+echo $2 >/sys/class/net/$1/device/sriov_numvfs
 
 # Unbinding the vfs for mellanox interfaces
 if [ $vendor_id == "0x15b3" ]

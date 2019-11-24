@@ -7,6 +7,10 @@ token=""
 hostname=""
 hostip=""
 no_deps="false"
+docker_image="docker.io/shaharklein/ovn-kube-u:f4dcb3e1"
+net_cidr="192.168.0.0/16" 
+svc_cidr="10.90.0.0/16"
+
 
 
 ##################################################
@@ -25,6 +29,12 @@ while test $# -gt 0; do
       shift
       shift
       ;;
+   
+   --ip)
+      hostip=$2
+      shift
+      shift
+      ;;
 
    --hostname)
       hostname=$2
@@ -32,8 +42,20 @@ while test $# -gt 0; do
       shift
       ;;
 
-   --ip)
-      hostip=$2
+   --docker-image)
+      docker_image=$2
+      shift
+      shift
+      ;;
+
+   --svc-cidr)
+      svc_cidr=$2
+      shift
+      shift
+      ;;
+
+   --net-cidr)
+      net_cidr=$2
       shift
       shift
       ;;
@@ -59,6 +81,12 @@ options:
 
    --no-deps)				Do not install the dependencies, use this only if you have ran the 
 					command before
+
+   --docker-image)                  the image touse to create the ovn containers
+
+   --svc-cidr)                      the service ip to use for the cluster
+
+   --net-cidr)                      the pod network cidr to use for the cluster
 
 "
       exit 0
@@ -158,6 +186,8 @@ cnis_install(){
 
 kubernetes_install(){ 
    yum -y install kubelet apt-transport-https ca-certificates curl software-properties-common python3-pip virtualenv python3-setuptools kubeadm
+   systemctl enable kubelet
+   systemctl start kubelet
 }
 
 docker_install(){
@@ -182,7 +212,7 @@ init_kubadmin(){
 
    if [[ -z $token ]]
    then 
-   	kubeadm init --apiserver-advertise-address=$hostip --node-name=$hostname  --skip-phases addon/kube-proxy --pod-network-cidr 192.168.0.0/16 --service-cidr 10.90.0.0/16
+   	kubeadm init --apiserver-advertise-address=$hostip --node-name=$hostname  --skip-phases addon/kube-proxy --pod-network-cidr $net_cidr --service-cidr $svc_cidr
       export KUBECONFIG=/etc/kubernetes/admin.conf
       mkdir -p $HOME/.kube
       sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
@@ -193,8 +223,9 @@ init_kubadmin(){
 }
 
 ovn_cni_setup(){
-   if [[ ! -d ~/ovn-kubernetes/ ]]
+   if [[ ! -d $HOME/ovn-kubernetes/ ]]
    then
+      cd $HOME
    	git clone https://github.com/ovn-org/ovn-kubernetes.git 
    fi
    cd $HOME/ovn-kubernetes/
@@ -204,6 +235,15 @@ ovn_cni_setup(){
    make install 
    echo "{\"cniVersion\":\"0.3.1\", \"name\":\"ovn-kubernetes\", \"type\":\"ovn-k8s-cni-overlay\"}" > /etc/cni/net.d/10-ovn-kubernetes.conf
    systemctl restart kubelet
+}
+
+file_configuration(){
+   cd $HOME/ovn-kubernetes/dist/images
+   make centos
+   ./daemonset.sh --image=docker.io/shaharklein/ovn-kube-u:f4dcb3e1 --net-cidr=$net_cidr --svc-cidr=$svc_cidr\
+                  --gateway-mode="shared"  --k8s-apiserver=https://$hostip
+   cd ../yaml/
+
 }
 
 

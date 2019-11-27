@@ -18,6 +18,7 @@ vendor_id="$(cat /sys/class/net/$1/device/vendor)"
 if [ "$(cat /sys/class/net/$1/device/sriov_numvfs)" != "0" ]
 then
   echo 0 >/sys/class/net/$1/device/sriov_numvfs
+  sleep 2
 fi
 echo $2 >/sys/class/net/$1/device/sriov_numvfs
 

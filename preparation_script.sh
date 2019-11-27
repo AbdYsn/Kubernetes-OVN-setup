@@ -83,13 +83,13 @@ options:
    --interface | -i) <interface>		      the name to be used to rename the netdev at the specified pci address and configure
                                           the switchdev on.
    
-   --hostname) <cluster hostname>	      The hostname of the master node
+   --hostname) <host hostname>	         The hostname of the current host
 
    --set-hostname) <new hostname>         aflag used if you want to change the hostname of the machine to the specified host name
 
    --master-hostname) <master hostname>   The hostname of the master
 
-   --ip) <ip of cluster admin>		      The ip of the master node
+   --ip) <ip of the master node>		      The ip of the master node
 
    --netmask) <netmask>                   The cluster network netmask, used to configure the interface.
 
@@ -177,6 +177,17 @@ then
    exit 1
 fi
 
+host_ip=`ifconfig $interface | grep -o "inet [0-9.]* " | cut -d" " -f 2`
+if [[ -z "$host_ip" ]]
+then
+   echo "no ip on the provided interface, please make sure that the network\
+    settings are correct !!!
+   Please provide one using the option --interface
+   for more informaton see the help menu --help or -h
+   Exitting ...."
+   exit 1
+fi
+
 ##################################################
 ##################################################
 ###############   Functions   ####################
@@ -186,7 +197,6 @@ fi
 
 hostname_check(){
    hostname_add $master_ip $master_hostname
-   host_ip=`ifconfig $interface | grep -o "inet [0-9.]* " | cut -d" " -f 2`
    hostname_add $host_ip $hostname
 
    if [[ $hostname_change_flag == "true" ]]
@@ -396,7 +406,7 @@ system_args_check
 interface_name_check
 interface_ip_config $interface
 ./$switchdev_scripts_name $interface $vfs_num
-if [[ `ls /sys/bus/pci/devices/$pci_address | grep virtfn[0-9]* | wc -l` != $vfs_num ]]
+if [[ `ls /sys/class/net/$interface/device/ | grep virtfn[0-9]* | wc -l` != $vfs_num ]]
 then
    exit 1
 fi

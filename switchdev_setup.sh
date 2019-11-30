@@ -66,8 +66,8 @@ fi
 /usr/sbin/ethtool -K $1 hw-tc-offload on
 
 # Enabling  hw-offload in ovs
-if [[ ! $(ovs-vsctl get Open_Vswitch . other_config:hw-offload | grep -i true) ]]
-then
-  ovs-vsctl set Open_Vswitch  . other_config:hw-offload=true
-fi
+#if [[ ! $(ovs-vsctl get Open_Vswitch . other_config:hw-offload | grep -i true) ]]
+#then
+#  ovs-vsctl set Open_Vswitch  . other_config:hw-offload=true
+#fi
 

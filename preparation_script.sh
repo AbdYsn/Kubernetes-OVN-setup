@@ -85,7 +85,7 @@ options:
    
    --hostname) <host hostname>	         The hostname of the current host
 
-   --set-hostname) <new hostname>         aflag used if you want to change the hostname of the machine to the specified host name
+   --set-hostname)                        a flag used if you want to change the hostname of the machine to the specified host name
 
    --master-hostname) <master hostname>   The hostname of the master
 
@@ -195,64 +195,38 @@ fi
 ##################################################
 
 
-hostname_check(){
-   hostname_add $master_ip $master_hostname
-   hostname_add $host_ip $hostname
-
-   if [[ $hostname_change_flag == "true" ]]
+change_hostname(){  
+old_hostname=`hostname`
+if [[ "$old_hostname" != $hostname ]]
    then
-   if [[ "`hostname`" != $hostname ]]
+      hostname_line="`cat /etc/hosts | grep $old_hostname`"
+      if [[ -n $hostname_line ]]
       then
-         old_hostname=`hostname`
-         hostname_line="`cat /etc/hosts | grep $old_hostname`"
-         if [[ -n $hostname_line ]]
-         then
-            sed -i "s/$old_hostname/$hostname/g" /etc/hosts
-         fi
-         hostnamectl set-hostname $hostname
+         sed -i "s/$old_hostname/$hostname/g" /etc/hosts
       fi
-   fi
+      hostnamectl set-hostname $hostname
+fi
 }
 
 hostname_add(){
    ip=$1
    local_hostname=$2
-   if [[ -z "`cat /etc/hosts | grep $ip`" ]]
+   if [[ -z "`grep $ip /etc/hosts`" ]]
    then
       echo "$ip $local_hostname" >> /etc/hosts
    else
-      if [[ "`cat /etc/hosts | grep $ip | cut -d\" \" -f 2`" != "$local_hostname" ]]
+      if [[ "`grep $ip /etc/hosts | cut -d\" \" -f 2`" != "$local_hostname" ]]
       then
-         old_host="`cat /etc/hosts | grep $ip | cut -d" " -f 2`"
+         old_host="`grep $ip /etc/hosts | cut -d" " -f 2`"
          sed -i "s/$old_host/$local_hostname/g" /etc/hosts
       fi
    fi
 }
 
 gopath_check(){
-if [[ -z "`cat ~/.bashrc | grep GOPATH`" ]]
-then
-   sudo tee -a ~/.bashrc <<EOF
-export GOPATH=/root/go                                                                                                             
-EOF
-export GOPATH=/root/go
-fi
-
-if [[ -z "`cat ~/.bashrc | grep "/usr/local/go/bin"`" ]]
-then
-   sudo tee -a ~/.bashrc <<EOF
-export PATH=$PATH:/usr/local/go/bin
-EOF
-export PATH=$PATH:/usr/local/go/bin
-fi
-
-if [[ -z "`cat ~/.bashrc | grep KUBECONFIG`" ]]
-then
-   sudo tee -a ~/.bashrc <<EOF
-export KUBECONFIG=/etc/kubernetes/admin.conf                                                                                                      
-EOF
-export KUBECONFIG=/etc/kubernetes/admin.conf
-fi
+change_content "~/.bashrc" "GOPATH" "/root/go"
+change_content "~/.bashrc" "PATH" "/root/go" amend
+change_content "~/.bashrc" "KUBECONFIG" "/etc/kubernetes/admin.conf"
 }
 
 kubernetes_repo_check(){
@@ -271,36 +245,24 @@ EOF
 }
 
 system_args_check(){
-   if [[ -z `cat /etc/sysctl.conf | grep net.ipv4.ip_forward` ]]
-   then
-      echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
-      sysctl -p
-   else
-      change_content "/etc/sysctl.conf" "net.bridge.bridge-nf-call-iptables" "1"
-      sysctl -p
-   fi
-   
-   if [[ -z `cat /etc/sysctl.conf | grep net.bridge.bridge-nf-call-iptables` ]]
-   then
-      echo "net.bridge.bridge-nf-call-iptables=1" >> /etc/sysctl.conf
-      sysctl -p
-   else
-      change_content "/etc/sysctl.conf" "net.bridge.bridge-nf-call-iptables" "1"
-      sysctl -p
-   fi
+   change_content "/etc/sysctl.conf" "net.ipv4.ip_forward" "1"
+   change_content "/etc/sysctl.conf" "net.bridge.bridge-nf-call-iptables" "1"
+   sysctl -p
 
    if [[ -n `swapon -s` ]]
    then
       swapoff -a
    fi
 
-   swap_line="`cat /etc/fstab | grep swap`"
-
-   if [[ -n $swap_line ]]
+   swap_line_numbers="`grep -x -n "[^#]*swap.*" /etc/fstab | cut -d":" -f 1`"
+   if [[ -n $swap_line_numbers ]]
    then
-      sed -i "s/.*swap.*/\#$swap_line/g" /etc/fstab
+      for line_number in $swap_line_numbers;
+      do
+         sed -i "$line_number s/^/\#/g" /etc/fstab
+      done
    fi
-   
+
    if [[ `systemctl is-active firewalld` != "inactive" ]] 
    then 
       systemctl stop firewalld
@@ -311,13 +273,14 @@ system_args_check(){
       systemctl disable firewalld
    fi
 
-   if [[ -z `cat /etc/rc.local | grep $switchdev_scripts_name` ]]
+   if [[ -z `grep $switchdev_scripts_name /etc/rc.local` ]]
    then
       echo "$my_path/$switchdev_scripts_name $interface $vfs_num" >> /etc/rc.local
-   elif [[ `cat /etc/rc.local | grep $switchdev_scripts_name | cut -d" " -f 2` != "$interface" ]] ||\
-    [[ `cat /etc/rc.local| grep $switchdev_scripts_name| cut -d" " -f 3` != "$vfs_num" ]]
+   elif [[ `grep $switchdev_scripts_name /etc/rc.local | cut -d" " -f 2` != "$interface" ]] ||\
+    [[ `grep $switchdev_scripts_name /etc/rc.local | cut -d" " -f 3` != "$vfs_num" ]]
    then
-      sed -i "s/$switchdev_scripts_name [0-9a-zA-Z]* [0-9]*/$switchdev_scripts_name $interface $vfs_num/g" /etc/rc.local
+      sed -i "s/$switchdev_scripts_name [0-9a-zA-Z]* [0-9]*/$switchdev_scripts_name \
+      $interface $vfs_num/g" /etc/rc.local
    fi
    chmod +x $my_path/$switchdev_scripts_name
    chmod +x /etc/rc.local
@@ -348,7 +311,7 @@ interface_name_check(){
 }
 
 change_interface_name(){
-   check_line=`cat /etc/udev/rules.d/70-persistent-ipoib.rules | grep $1 | sed 's/\"/\\\"/g' | sed 's/\*/\\\*/g'`
+   check_line=`grep $1 /etc/udev/rules.d/70-persistent-ipoib.rules | sed 's/\"/\\\"/g' | sed 's/\*/\\\*/g'`
    if [[ -z $check_line ]]
    then
       echo "ACTION==\"add\", SUBSYSTEM==\"net\", DRIVERS==\"?*\" KERNELS==\"$1\", NAME=\"$2\"" \
@@ -366,30 +329,26 @@ change_interface_name(){
 
 interface_ip_config(){
    conf_file=/etc/sysconfig/network-scripts/ifcfg-$1
-
-   if [[ -z `cat $conf_file | grep IPADDR` ]]
-   then
-      echo "IPADDR=$host_ip" >> $conf_file
-   else
-      change_content $conf_file IPADDR $host_ip
-   fi   
-
-   if [[ -z `cat $conf_file | grep NETMASK` ]]
-   then
-      echo "NETMASK=$netmask" >> $conf_file
-   else
-      change_content $conf_file NETMASK $netmask
-   fi
-
+   change_content $conf_file IPADDR $host_ip
+   change_content $conf_file NETMASK $netmask
 }
 
 change_content(){
    file=$1
    content=$2
    new_value=$3
-   if [[ `cat $file | grep $content | cut -d"=" -f 2` != "$new_value" ]]
+   amend="$4"
+   file_content=`grep $content $file` 
+   if [[ -z $file_content ]]
    then
-      sed -i s/"$content=.*"/"$content=$new_value"/g $file
+      echo "$content=$new_value" >> $file
+   elif [[ `cut -d"=" -f 2 <<< $file_content ` != "$new_value" ]] && [[ -z $amend ]]
+   then
+      sed -i s/"$content=[^ ]*"/"$content=$new_value"/g $file
+   elif [[ ! `cut -d"=" -f 2 <<< $file_content ` =~ "$new_value" ]] && [[ -n $amend ]]
+   then
+      old_content=`grep -o "$content=[^ ]*" $file`
+      sed -i s/"$old_content"/"$old_content$new_value"/g $file
    fi
 }
 
@@ -399,7 +358,14 @@ change_content(){
 ##################################################
 ##################################################
 
-hostname_check
+
+hostname_add $master_ip $master_hostname
+hostname_add $host_ip $hostname
+if [[ $hostname_change_flag == "true" ]]
+then
+   change_hostname
+fi
+
 gopath_check
 kubernetes_repo_check
 system_args_check

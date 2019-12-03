@@ -122,9 +122,14 @@ delete_dir(){
 clean_ovs(){
     if [[ -n "`rpm -qa | grep openvswitch`" ]] 
     then
+        for bridge in `ovs-vsctl list-br`; do
+            ovs-vsctl del-br $bridge
+        done
+
         rm -rf /var/log/openvswitch/
         rm -rf /var/run/openvswitch/
         rm -rf /var/log/ovn-kubernetes
+        rm -rf /var/lib/openvswitch/
         rm -rf /etc/openvswitch/conf.db
         systemctl restart openvswitch
         ifdown $interface
@@ -161,6 +166,7 @@ package_check(){
 ##################################################
 
 kubernetes_cleanup
+clean_ovs
 
 if [[ $docker_clean == "true" ]]
 then
@@ -177,4 +183,3 @@ then
     golang_cleanup
 fi
 
-clean_ovs

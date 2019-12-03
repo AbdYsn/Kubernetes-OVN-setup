@@ -8,7 +8,6 @@ interface=""
 hostname=""
 master_hostname=""
 host_ip=""
-reload="false"
 hostname_change_flag="false"
 pci_address=""
 vfs_num=""
@@ -197,9 +196,9 @@ fi
 
 change_hostname(){  
 old_hostname=`hostname`
-if [[ "$old_hostname" != $hostname ]]
+if [[ "$old_hostname" != "$hostname" ]]
    then
-      hostname_line="`cat /etc/hosts | grep $old_hostname`"
+      hostname_line="`grep $old_hostname /etc/hosts`"
       if [[ -n $hostname_line ]]
       then
          sed -i "s/$old_hostname/$hostname/g" /etc/hosts
@@ -224,14 +223,14 @@ hostname_add(){
 }
 
 gopath_check(){
-change_content "~/.bashrc" "GOPATH" "/root/go"
-change_content "~/.bashrc" "PATH" "/root/go" amend
-change_content "~/.bashrc" "KUBECONFIG" "/etc/kubernetes/admin.conf"
+change_content "$HOME/.bashrc" "GOPATH" "/root/go"
+change_content "$HOME/.bashrc" "PATH" "/root/go" amend
+change_content "$HOME/.bashrc" "KUBECONFIG" "/etc/kubernetes/admin.conf"
 }
 
 kubernetes_repo_check(){
-   if [[ ! -f "/etc/yum.repos.d/kubernetes.repo" ]] || [[ -z `cat /etc/yum.repos.d/kubernetes.repo | grep \
-   gpgkey=https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg` ]]
+   if [[ ! -f "/etc/yum.repos.d/kubernetes.repo" ]] || [[ -z `\
+   gpgkey=https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg /etc/yum.repos.d/kubernetes.repo` ]]
    then
    sudo tee -a /etc/yum.repos.d/kubernetes.repo <<EOF
 [kubernets-stable]
@@ -273,17 +272,17 @@ system_args_check(){
       systemctl disable firewalld
    fi
 
-   if [[ -z `grep $switchdev_scripts_name /etc/rc.local` ]]
+   if [[ -z `grep $switchdev_scripts_name /etc/rc.d/rc.local` ]]
    then
-      echo "$my_path/$switchdev_scripts_name $interface $vfs_num" >> /etc/rc.local
-   elif [[ `grep $switchdev_scripts_name /etc/rc.local | cut -d" " -f 2` != "$interface" ]] ||\
-    [[ `grep $switchdev_scripts_name /etc/rc.local | cut -d" " -f 3` != "$vfs_num" ]]
+      echo "$my_path/$switchdev_scripts_name $interface $vfs_num" >> /etc/rc.d/rc.local
+   elif [[ `grep $switchdev_scripts_name /etc/rc.d/rc.local | cut -d" " -f 2` != "$interface" ]] ||\
+    [[ `grep $switchdev_scripts_name /etc/rc.d/rc.local | cut -d" " -f 3` != "$vfs_num" ]]
    then
       sed -i "s/$switchdev_scripts_name [0-9a-zA-Z]* [0-9]*/$switchdev_scripts_name \
-      $interface $vfs_num/g" /etc/rc.local
+      $interface $vfs_num/g" /etc/rc.d/rc.local
    fi
    chmod +x $my_path/$switchdev_scripts_name
-   chmod +x /etc/rc.local
+   chmod +x /etc/rc.d/rc.local
 }
 
 interface_name_check(){
@@ -294,12 +293,12 @@ interface_name_check(){
    fi
 
    old_interface_name=`ls /sys/bus/pci/devices/$pci_address/net/`
-   if [[ $old_interface_name != $interface ]]
+   if [[ $old_interface_name != "$interface" ]]
    then 
       interfaces_list=`ls /sys/class/net`
       for sys_interface in $interfaces_list;
       do
-         if [[ $sys_interface == $interface ]]
+         if [[ $sys_interface == "$interface" ]]
          then
             # in this case there is an interface with the name specified, but it does not
             # have the same pci address, the user should choose another name.
@@ -345,7 +344,7 @@ change_content(){
    elif [[ `cut -d"=" -f 2 <<< $file_content ` != "$new_value" ]] && [[ -z $amend ]]
    then
       sed -i s/"$content=[^ ]*"/"$content=$new_value"/g $file
-   elif [[ ! `cut -d"=" -f 2 <<< $file_content ` =~ "$new_value" ]] && [[ -n $amend ]]
+   elif [[ ! `cut -d"=" -f 2 <<< $file_content ` =~ $new_value ]] && [[ -n $amend ]]
    then
       old_content=`grep -o "$content=[^ ]*" $file`
       sed -i s/"$old_content"/"$old_content$new_value"/g $file
@@ -372,7 +371,7 @@ system_args_check
 interface_name_check
 interface_ip_config $interface
 ./$switchdev_scripts_name $interface $vfs_num
-if [[ `ls /sys/class/net/$interface/device/ | grep virtfn[0-9]* | wc -l` != $vfs_num ]]
+if [[ `ls /sys/class/net/$interface/device/ | grep -c "virtfn[0-9]*"` != "$vfs_num" ]]
 then
    exit 1
 fi

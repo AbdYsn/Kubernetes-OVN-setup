@@ -1,5 +1,7 @@
 #!/bin/bash
-
+# This scripts create vfs on the interface and switch them to switchdev mode
+# it accepts two parameters, the first is the name of the interface and the
+# second is the number of vfs
 
 set -ex
 set -o pipefail

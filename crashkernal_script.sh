@@ -1,4 +1,6 @@
 #!/bin/bash
+# this script enable the crash dumb and sets the value if the crashkernel parameter
+# it accepts one parameter, the new value of the crashkernel parameter
 
 set -e
 set -x

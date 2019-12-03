@@ -17,8 +17,7 @@ gateway=parse_conf gateway
 docker_image=parse_conf docker_image
 net_cidr=parse_conf net_cidr
 svc_cidr=parse_conf svc_cidr
-
-master="false"
+master=parse_conf is_master
 
 ##################################################
 ##################################################
@@ -107,16 +106,6 @@ exec 1> >(logger -s -t $(basename $0)) 2>&1
 ##################################################
 
 
-
-if [[ -z $hostip ]]
-then
-    echo "The ip address was not provided !!!
-    Please provide one using the option --ip
-    for more informaton see the help menu --help or -h
-    Exitting ...."
-    exit 1
-fi
-
 if [[ -n $master ]]
 then
     if [[ -z $interface ]]
@@ -131,6 +120,15 @@ then
     if [[ -z $gateway ]]
     then
         echo "The gateway was not provided !!!
+        Please provide one using the option --ip
+        for more informaton see the help menu --help or -h
+        Exitting ...."
+        exit 1
+    fi
+
+    if [[ -z $hostip ]]
+    then
+        echo "The ip address was not provided !!!
         Please provide one using the option --ip
         for more informaton see the help menu --help or -h
         Exitting ...."

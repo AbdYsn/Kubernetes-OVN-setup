@@ -17,8 +17,7 @@ token=parse_conf token
 ca_hash=parse_conf ca_hash
 net_cidr=parse_conf net_cidr
 svc_cidr=parse_conf svc_cidr
-
-no_deps="false"
+install_deps=parse_conf install_deps
 
 
 ##################################################
@@ -63,7 +62,7 @@ while test $# -gt 0; do
       ;;
    
    --no-deps)
-      no_deps="true"
+      install_deps="fasle"
       shift
       ;;
 
@@ -279,7 +278,7 @@ error_check(){
 ##################################################
 
 
-if [[ $no_deps == "false" ]]
+if [[ $install_deps == "true" ]]
 then
    golang_install
    cnis_install

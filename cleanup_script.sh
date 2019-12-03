@@ -10,10 +10,9 @@ parse_conf(){
 }
 
 interface=parse_conf interface
-
-docker_clean="true"
-cnis_clean="true"
-golang_clean="false"
+docker_clean=parse_conf docker_clean
+cnis_clean=parse_conf cnis_clean
+golang_clean=parse_conf golang_clean
 
 
 ##################################################

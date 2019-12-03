@@ -19,10 +19,9 @@ hostname=parse_conf hostname
 interface=parse_conf interface
 pci_address=parse_conf pci_address
 vfs_num=parse_conf vfs_num
-
+hostname_change_flag=parse_conf change_machine_hostname
 
 switchdev_scripts_name="switchdev_setup.sh"
-hostname_change_flag="false"
 
 ##################################################
 ##################################################

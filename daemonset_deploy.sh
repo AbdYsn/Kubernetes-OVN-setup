@@ -3,7 +3,6 @@
 set -e
 set -x
 
-exec 1> >(logger -s -t $(basename $0)) 2>&1
 
 while test $# -gt 0; do
   case "$1" in
@@ -23,12 +22,13 @@ daemonset_deploy.sh [options]: deploy the daemonsets of the sriov device plugin 
   esac
 done
 
+exec 1> >(logger -s -t $(basename $0)) 2>&1
 
 deploy_components(){
    if [[ -d yaml/ ]]
    then
       cd yaml/
-      
+
       kubectl create -f sriov-setup.yaml
       kubectl create -f sriovdp-daemonset.yaml
       kubectl create -f multus-daemonset.yaml

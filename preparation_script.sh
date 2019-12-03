@@ -2,18 +2,27 @@
 
 #set -e
 set -x
-exec 1> >(logger -s -t $(basename $0)) 2>&1
 
-interface=""
-hostname=""
-master_hostname=""
-host_ip=""
-hostname_change_flag="false"
-pci_address=""
-vfs_num=""
-master_ip=""
-netmask="255.255.255.0"
+parse_conf(){
+   param=$1
+   if [[ -f local.conf ]]
+   then
+      echo `grep $param local.conf | cut -d"=" -f 2`
+   fi
+}
+
+master_ip=parse_conf master_ip
+master_hostname=parse_conf master_hostname
+netmask=parse_conf netmask
+host_ip=parse_conf host_ip
+hostname=parse_conf hostname
+interface=parse_conf interface
+pci_address=parse_conf pci_address
+vfs_num=parse_conf vfs_num
+
+
 switchdev_scripts_name="switchdev_setup.sh"
+hostname_change_flag="false"
 
 ##################################################
 ##################################################
@@ -79,22 +88,22 @@ prepration_script [options] --ip <master ip> --master-hostname <master hostname>
 
 options:
  
-   --interface | -i) <interface>		      the name to be used to rename the netdev at the specified pci address and configure
-                                          the switchdev on.
+	--interface | -i) <interface>			The name to be used to rename the netdev at the specified pci address and configure
+							the switchdev on.
    
-   --hostname) <host hostname>	         The hostname of the current host
+	--hostname) <host hostname>			The hostname of the current host
 
-   --set-hostname)                        a flag used if you want to change the hostname of the machine to the specified host name
+	--set-hostname)					A flag used if you want to change the hostname of the machine to the specified host name
 
-   --master-hostname) <master hostname>   The hostname of the master
+	--master-hostname) <master hostname>		The hostname of the master
 
-   --ip) <ip of the master node>		      The ip of the master node
+	--ip) <ip of the master node>			The ip of the master node
 
-   --netmask) <netmask>                   The cluster network netmask, used to configure the interface.
+	--netmask) <netmask>				The cluster network netmask, used to configure the interface.
 
-   --pci-address)                         The pci address of the net device to use, if present it is used to change the name of the net device
+	--pci-address)					The pci address of the net device to use, if present it is used to change the name of the net device
 
-   --vfs-num)                             The number of vfs to create for switchdev mode
+	--vfs-num)					The number of vfs to create for switchdev mode
 
 "
       exit 0
@@ -106,6 +115,8 @@ options:
       exit 1
   esac
 done
+
+exec 1> >(logger -s -t $(basename $0)) 2>&1
 
 ##################################################
 ##################################################
@@ -176,7 +187,11 @@ then
    exit 1
 fi
 
-host_ip=`ifconfig $interface | grep -o "inet [0-9.]* " | cut -d" " -f 2`
+if [[ -z "$host_ip" ]]
+then
+   host_ip=`ifconfig $interface | grep -o "inet [0-9.]* " | cut -d" " -f 2`
+fi
+
 if [[ -z "$host_ip" ]]
 then
    echo "no ip on the provided interface, please make sure that the network\

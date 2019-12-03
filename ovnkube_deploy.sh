@@ -3,15 +3,22 @@
 set -e
 set -x
 
-hostip=""
-interface=""
-gateway=""
-master="false"
-docker_image="docker.io/shaharklein/ovn-kube-u:f4dcb3e1"
-net_cidr="192.168.0.0/16" 
-svc_cidr="10.90.0.0/16"
+parse_conf(){
+   param=$1
+   if [[ -f local.conf ]]
+   then
+      echo `grep $param local.conf | cut -d"=" -f 2`
+   fi
+}
 
-exec 1> >(logger -s -t $(basename $0)) 2>&1
+hostip=parse_conf master_ip
+interface=parse_conf interface
+gateway=parse_conf gateway
+docker_image=parse_conf docker_image
+net_cidr=parse_conf net_cidr
+svc_cidr=parse_conf svc_cidr
+
+master="false"
 
 ##################################################
 ##################################################
@@ -68,17 +75,17 @@ while test $# -gt 0; do
 ovnkube_deploy.sh [options]: set up the ovn cni and deploy the deployments and daemonsets.
 
 options:
-   --ip) <ip of cluster admin>		The ip of the master host
+	--ip) <ip of cluster admin>			The ip of the master host
 
-   --interface)                     the interface to the cluster
+	--interface)					The interface to the cluster
 
-   --gateway)                       the gateway of the network
+	--gateway)					The gateway of the network
 
-   --docker-image)                  the image to use to create the ovn containers
+	--docker-image)					The image to use to create the ovn containers
 
-   --svc-cidr)                      the service ip to use for the cluster
+	--svc-cidr)					The service ip to use for the cluster
 
-   --net-cidr)                      the pod network cidr to use for the cluster
+	--net-cidr)					The pod network cidr to use for the cluster
 
 "
       exit 0
@@ -90,6 +97,8 @@ options:
       exit 1
   esac
 done
+
+exec 1> >(logger -s -t $(basename $0)) 2>&1
 
 ##################################################
 ##################################################
@@ -108,22 +117,25 @@ then
     exit 1
 fi
 
-if [[ -z $interface ]]
+if [[ -n $master ]]
 then
-    echo "The interface was not provided !!!
-    Please provide one using the option --interface
-    for more informaton see the help menu --help or -h
-    Exitting ...."
-    exit 1
-fi
+    if [[ -z $interface ]]
+    then
+        echo "The interface was not provided !!!
+        Please provide one using the option --interface
+        for more informaton see the help menu --help or -h
+        Exitting ...."
+        exit 1
+    fi
 
-if [[ -z $gateway ]]
-then
-    echo "The gateway was not provided !!!
-    Please provide one using the option --ip
-    for more informaton see the help menu --help or -h
-    Exitting ...."
-    exit 1
+    if [[ -z $gateway ]]
+    then
+        echo "The gateway was not provided !!!
+        Please provide one using the option --ip
+        for more informaton see the help menu --help or -h
+        Exitting ...."
+        exit 1
+    fi
 fi
 
 ##################################################

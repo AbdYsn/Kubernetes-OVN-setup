@@ -1,11 +1,20 @@
 #!/bin/bash
 set -x
 
+parse_conf(){
+   param=$1
+   if [[ -f local.conf ]]
+   then
+      echo `grep $param local.conf | cut -d"=" -f 2`
+   fi
+}
+
+interface=parse_conf interface
+
 docker_clean="true"
 cnis_clean="true"
 golang_clean="false"
-interface=""
-exec 1> >(logger -s -t $(basename $0 )) 2>&1
+
 
 ##################################################
 ##################################################
@@ -43,14 +52,14 @@ cleanup_script [options] -i <interface> A script to cleanup the host from kubern
 
 options:
 
-    --no-docker)                do not clean the docker
+	--no-docker)			do not clean the docker
 
-    --no-cnis)                  do not remove the cnis
+	--no-cnis)			do not remove the cnis
 
-    --golang)                   remove the golang
+	--golang)			remove the golang
 
-    --interface | -i)           the interface connected to the master node, used to restore the 
-                                ip on the interface
+	--interface | -i)		the interface connected to the master node, used to restore the 
+					ip on the interface
                                 
 "
       exit 0
@@ -62,6 +71,8 @@ options:
       exit 1
   esac
 done
+
+exec 1> >(logger -s -t $(basename $0 )) 2>&1
 
 ##################################################
 ##################################################

@@ -3,13 +3,22 @@
 set -e
 set -x
 
-token=""
-hostname=""
-hostip=""
+parse_conf(){
+   param=$1
+   if [[ -f local.conf ]]
+   then
+      echo `grep $param local.conf | cut -d"=" -f 2`
+   fi
+}
+
+hostip=parse_conf master_ip
+hostname=parse_conf master_hostname
+token=parse_conf token
+ca_hash=parse_conf ca_hash
+net_cidr=parse_conf net_cidr
+svc_cidr=parse_conf svc_cidr
+
 no_deps="false"
-net_cidr="192.168.0.0/16" 
-svc_cidr="10.90.0.0/16"
-exec 1> >(logger -s -t $(basename $0)) 2>&1
 
 
 ##################################################
@@ -64,20 +73,20 @@ setup_kubernetes.sh [options]: set up a kubernetes kubeadm environment with offl
 
 options:
  
-   --token| -t) <cluster token>		An option to indicate that this is a worker host, so that it will join 
-					<ca_cert_hash>       a cluster instead of creating one, pass to it the master token and the 
-                                    ca_cert_hash.
+	--token| -t) 	<cluster token>			An option to indicate that this is a worker host, so that it will join 
+			<ca_cert_hash>			a cluster instead of creating one, pass to it the master token and the 
+							ca_cert_hash.
    
-   --hostname) <cluster hostname>	The hostname to use for the cluster creating
+	--hostname) <cluster hostname>			The hostname to use for the cluster creating
 
-   --ip) <ip of cluster admin>		The ip of the master host
+	--ip) <ip of cluster admin>			The ip of the master host
 
-   --no-deps)				            Do not install the dependencies, use this only if you have ran the 
-					                     command before
+	--no-deps)					Do not install the dependencies, use this only if you have ran the 
+							command before
 
-   --svc-cidr)                      the service ip to use for the cluster
+	--svc-cidr)					The service ip to use for the cluster
 
-   --net-cidr)                      the pod network cidr to use for the cluster
+	--net-cidr)					The pod network cidr to use for the cluster
 
 "
       exit 0
@@ -89,6 +98,8 @@ options:
       exit 1
   esac
 done
+
+exec 1> >(logger -s -t $(basename $0)) 2>&1
 
 ##################################################
 ##################################################

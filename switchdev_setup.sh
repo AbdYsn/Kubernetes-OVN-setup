@@ -5,6 +5,7 @@
 
 set -ex
 set -o pipefail
+
 exec 1> >(logger -s -t $(basename $1)) 2>&1
 
 

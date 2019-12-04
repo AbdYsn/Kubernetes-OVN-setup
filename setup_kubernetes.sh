@@ -18,6 +18,7 @@ ca_hash=`parse_conf ca_hash`
 net_cidr=`parse_conf net_cidr`
 svc_cidr=`parse_conf svc_cidr`
 install_deps=`parse_conf install_deps`
+is_master=`parse_conf is_master`
 
 
 ##################################################
@@ -116,7 +117,7 @@ then
    logger "the hostname that will be used is: $hostname"
 fi
 
-if [[ -n $token ]]
+if [[ "$is_master" == "false" ]]
 then 
    if [[ -z $ca_hash ]]
    then 
@@ -235,7 +236,7 @@ init_kubadmin(){
       exit 1
    fi
 
-   if [[ -z $token ]]
+   if [[ "$is_master" == "true" ]]
    then 
    	kubeadm init --apiserver-advertise-address=$hostip --node-name=$hostname  --skip-phases addon/kube-proxy --pod-network-cidr $net_cidr --service-cidr $svc_cidr
       export KUBECONFIG=/etc/kubernetes/admin.conf
@@ -288,7 +289,7 @@ fi
 
 init_kubadmin
 
-if [[ -z $token ]]
+if [[ "$is_master" == "true" ]]
 then
    kubeadm token create --print-join-command   
 fi

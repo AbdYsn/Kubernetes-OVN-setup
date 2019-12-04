@@ -292,8 +292,8 @@ system_args_check(){
    elif [[ `grep $switchdev_scripts_name /etc/rc.d/rc.local | cut -d" " -f 2` != "$interface" ]] ||\
     [[ `grep $switchdev_scripts_name /etc/rc.d/rc.local | cut -d" " -f 3` != "$vfs_num" ]]
    then
-      sed -i "s/$switchdev_scripts_name [0-9a-zA-Z]* [0-9]*/$switchdev_scripts_name \
-      $interface $vfs_num/g" /etc/rc.d/rc.local
+      match_re="$switchdev_scripts_name [0-9a-zA-Z]* [0-9]*"
+      sed -i "s/$match_re/$switchdev_scripts_name $interface $vfs_num/g" /etc/rc.d/rc.local
    fi
    chmod +x $my_path/$switchdev_scripts_name
    chmod +x /etc/rc.d/rc.local
@@ -319,8 +319,8 @@ interface_name_check(){
             exit 1
          fi
       done
-      change_interface_name $pci_address $interface $old_interface_name
    fi
+   change_interface_name $pci_address $interface $old_interface_name
 }
 
 change_interface_name(){

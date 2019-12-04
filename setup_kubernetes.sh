@@ -227,14 +227,15 @@ init_kubadmin(){
    if [[ `systemctl is-active openvswitch` == "inactive" ]]
    then
       systemctl start openvswitch
+      sleep 1
+
+      if [[ `systemctl is-active openvswitch` == "inactive" ]]
+      then
+         exit 1
+      fi
    fi
 
-   sleep 1
-
-   if [[ `systemctl is-active openvswitch` == "inactive" ]]
-   then
-      exit 1
-   fi
+   
 
    if [[ "$is_master" == "true" ]]
    then 

@@ -5,14 +5,14 @@ parse_conf(){
    param=$1
    if [[ -f local.conf ]]
    then
-      echo `grep $param local.conf | cut -d"=" -f 2`
+      echo `grep -x $param"=.*" local.conf | cut -d"=" -f 2`
    fi
 }
 
-interface=parse_conf interface
-docker_clean=parse_conf docker_clean
-cnis_clean=parse_conf cnis_clean
-golang_clean=parse_conf golang_clean
+interface=`parse_conf interface`
+docker_clean=`parse_conf docker_clean`
+cnis_clean=`parse_conf cnis_clean`
+golang_clean=`parse_conf golang_clean`
 
 
 ##################################################

@@ -7,17 +7,17 @@ parse_conf(){
    param=$1
    if [[ -f local.conf ]]
    then
-      echo `grep $param local.conf | cut -d"=" -f 2`
+      echo `grep -x $param"=.*" local.conf | cut -d"=" -f 2`
    fi
 }
 
-hostip=parse_conf master_ip
-interface=parse_conf interface
-gateway=parse_conf gateway
-docker_image=parse_conf docker_image
-net_cidr=parse_conf net_cidr
-svc_cidr=parse_conf svc_cidr
-master=parse_conf is_master
+hostip=`parse_conf master_ip`
+interface=`parse_conf interface`
+gateway=`parse_conf gateway`
+docker_image=`parse_conf docker_image`
+net_cidr=`parse_conf net_cidr`
+svc_cidr=`parse_conf svc_cidr`
+master=`parse_conf is_master`
 
 ##################################################
 ##################################################

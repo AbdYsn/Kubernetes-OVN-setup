@@ -7,17 +7,17 @@ parse_conf(){
    param=$1
    if [[ -f local.conf ]]
    then
-      echo `grep $param local.conf | cut -d"=" -f 2`
+      echo `grep -x $param"=.*" local.conf | cut -d"=" -f 2`
    fi
 }
 
-hostip=parse_conf master_ip
-hostname=parse_conf master_hostname
-token=parse_conf token
-ca_hash=parse_conf ca_hash
-net_cidr=parse_conf net_cidr
-svc_cidr=parse_conf svc_cidr
-install_deps=parse_conf install_deps
+hostip=`parse_conf master_ip`
+hostname=`parse_conf master_hostname`
+token=`parse_conf token`
+ca_hash=`parse_conf ca_hash`
+net_cidr=`parse_conf net_cidr`
+svc_cidr=`parse_conf svc_cidr`
+install_deps=`parse_conf install_deps`
 
 
 ##################################################

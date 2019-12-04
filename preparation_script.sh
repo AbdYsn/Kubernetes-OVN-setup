@@ -7,19 +7,19 @@ parse_conf(){
    param=$1
    if [[ -f local.conf ]]
    then
-      echo `grep $param local.conf | cut -d"=" -f 2`
+      echo `grep -x $param"=.*" local.conf | cut -d"=" -f 2`
    fi
 }
 
-master_ip=parse_conf master_ip
-master_hostname=parse_conf master_hostname
-netmask=parse_conf netmask
-host_ip=parse_conf host_ip
-hostname=parse_conf hostname
-interface=parse_conf interface
-pci_address=parse_conf pci_address
-vfs_num=parse_conf vfs_num
-hostname_change_flag=parse_conf change_machine_hostname
+master_ip=`parse_conf master_ip`
+master_hostname=`parse_conf master_hostname`
+netmask=`parse_conf netmask`
+host_ip=`parse_conf host_ip`
+hostname=`parse_conf hostname`
+interface=`parse_conf interface`
+pci_address=`parse_conf pci_address`
+vfs_num=`parse_conf vfs_num`
+hostname_change_flag=`parse_conf change_machine_hostname`
 
 switchdev_scripts_name="switchdev_setup.sh"
 
@@ -327,10 +327,10 @@ change_interface_name(){
    check_line=`grep $1 /etc/udev/rules.d/70-persistent-ipoib.rules | sed 's/\"/\\\"/g' | sed 's/\*/\\\*/g'`
    if [[ -z $check_line ]]
    then
-      echo "ACTION==\"add\", SUBSYSTEM==\"net\", DRIVERS==\"?*\" KERNELS==\"$1\", NAME=\"$2\"" \
+      echo "ACTION==\"add\", SUBSYSTEM==\"net\", DRIVERS==\"?*\", KERNELS==\"$1\", NAME=\"$2\"" \
       >> /etc/udev/rules.d/70-persistent-ipoib.rules
    else
-      new_line="ACTION==\"add\", SUBSYSTEM==\"net\", DRIVERS==\"?*\" KERNELS==\"$1\", NAME=\"$2\""
+      new_line="ACTION==\"add\", SUBSYSTEM==\"net\", DRIVERS==\"?*\", KERNELS==\"$1\", NAME=\"$2\""
       sed -i "s/$check_line/$new_line/g" /etc/udev/rules.d/70-persistent-ipoib.rules
    fi
 
@@ -384,7 +384,10 @@ kubernetes_repo_check
 system_args_check
 interface_name_check
 interface_ip_config $interface
-./$switchdev_scripts_name $interface $vfs_num
+if [[ -z $pci_address ]]
+then
+   ./$switchdev_scripts_name $interface $vfs_num
+fi
 if [[ `ls /sys/class/net/$interface/device/ | grep -c "virtfn[0-9]*"` != "$vfs_num" ]]
 then
    exit 1

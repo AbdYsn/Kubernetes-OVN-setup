@@ -1,4 +1,6 @@
 #!/bin/bash
+# this script enable the crash dumb and sets the value if the crashkernel parameter
+# it accepts one parameter, the new value of the crashkernel parameter
 
 set -e
 set -x
@@ -6,9 +8,9 @@ set -x
 #check if the input is either empty, has a letter in the middle of numbers, or only numbers
 if [[ -z $1 ]] || [[ -n `echo $1 | grep -E [a-zA-Z].*[0-9]+` ]] || [[ -n `echo $1 | grep -E -v [a-zA-Z]` ]]
 then
-crashkernel="512M"
+	crashkernel="512M"
 else
-crashkernel=$1
+	crashkernel=$1
 fi
 
 kexec_install(){

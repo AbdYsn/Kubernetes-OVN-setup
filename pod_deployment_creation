@@ -1,0 +1,31 @@
+#!/bin/bash
+if [[ ! -f yaml/pod_deplyoment_template.yaml ]]
+then
+    exit 1
+fi
+
+pod_name="sriov-pod"
+replica_count="2"
+
+if [[ -z "$pod_name" ]] || [[ -z "$replica_count" ]]
+then 
+    exit 1
+fi
+
+nodes=`kubectl get nodes -o name | grep -v master | cut -d"/" -f2`
+
+if [[ -n "$nodes" ]]
+then
+    for node in $nodes;
+    do
+        copy_name="yaml/gen_pod-$node.yaml"
+        cp "yaml/pod_deplyoment_template.yaml" "$copy_name"
+        sed -i "s/{podName}/$pod_name/g" $copy_name
+        sed -i "s/{replicas}/$replica_count/g" $copy_name
+        sed -i "s/{nodeName}/$node/g" $copy_name
+        kubectl create -f $copy_name
+        sleep 2
+    done
+else
+    exit 1
+fi

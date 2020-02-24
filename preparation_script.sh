@@ -238,7 +238,7 @@ hostname_add(){
 
 gopath_check(){
 change_content "$HOME/.bashrc" "GOPATH" "/root/go"
-change_content "$HOME/.bashrc" "PATH" "/root/go" amend
+change_content "$HOME/.bashrc" "PATH" "/usr/local/go" amend
 change_content "$HOME/.bashrc" "KUBECONFIG" "/etc/kubernetes/admin.conf"
 }
 

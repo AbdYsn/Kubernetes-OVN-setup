@@ -22,6 +22,7 @@ vfs_num=`parse_conf vfs_num`
 hostname_change_flag=`parse_conf change_machine_hostname`
 
 switchdev_scripts_name="switchdev_setup.sh"
+slaves=""
 
 ##################################################
 ##################################################
@@ -238,7 +239,7 @@ hostname_add(){
 
 gopath_check(){
 change_content "$HOME/.bashrc" "GOPATH" "/root/go"
-change_content "$HOME/.bashrc" "PATH" "/usr/local/go" amend
+change_content "$HOME/.bashrc" "PATH" "/usr/local/go/bin" amend
 change_content "$HOME/.bashrc" "KUBECONFIG" "/etc/kubernetes/admin.conf"
 }
 
@@ -286,15 +287,34 @@ system_args_check(){
       systemctl disable firewalld
    fi
 
-   if [[ -z `grep $switchdev_scripts_name /etc/rc.d/rc.local` ]]
+   if [[ -z "`grep $interface /sys/class/net/bonding_masters`" ]]:
    then
-      echo "$my_path/$switchdev_scripts_name $interface $vfs_num" >> /etc/rc.d/rc.local
-   elif [[ `grep $switchdev_scripts_name /etc/rc.d/rc.local | cut -d" " -f 2` != "$interface" ]] ||\
-    [[ `grep $switchdev_scripts_name /etc/rc.d/rc.local | cut -d" " -f 3` != "$vfs_num" ]]
-   then
-      match_re="$switchdev_scripts_name [0-9a-zA-Z]* [0-9]*"
-      sed -i "s/$match_re/$switchdev_scripts_name $interface $vfs_num/g" /etc/rc.d/rc.local
+      add_switchdev
+   else
+      add_slaves_switchdev
    fi
+}
+
+add_switchdev(){
+   if [[ -n `grep $switchdev_scripts_name /etc/rc.d/rc.local` ]]
+   then
+      sed -i "/$switchdev_scripts_name/d" /etc/rc.d/rc.local
+   fi
+   echo "$my_path/$switchdev_scripts_name $interface $vfs_num" >> /etc/rc.d/rc.local
+   chmod +x $my_path/$switchdev_scripts_name
+   chmod +x /etc/rc.d/rc.local
+}
+
+add_slaves_switchdev(){
+   slaves=`cat /sys/class/net/$interface/bonding/slaves`
+   if [[ -n `grep $switchdev_scripts_name /etc/rc.d/rc.local` ]]
+   then
+      sed -i "/$switchdev_scripts_name/d" /etc/rc.d/rc.local
+   fi
+   for slave in $slaves
+   do
+      echo "$my_path/$switchdev_scripts_name $slave $vfs_num" >> /etc/rc.d/rc.local
+   done
    chmod +x $my_path/$switchdev_scripts_name
    chmod +x /etc/rc.d/rc.local
 }
@@ -386,7 +406,15 @@ interface_name_check
 interface_ip_config $interface
 if [[ -z $pci_address ]]
 then
-   ./$switchdev_scripts_name $interface $vfs_num
+   if [[ -z "`grep $interface /sys/class/net/bonding_masters`" ]]:
+   then
+      ./$switchdev_scripts_name $interface $vfs_num
+   else
+      for slave in $slaves
+      do
+         ./$switchdev_scripts_name $slave $vfs_num
+      done      
+   fi
 fi
 if [[ `ls /sys/class/net/$interface/device/ | grep -c "virtfn[0-9]*"` != "$vfs_num" ]]
 then

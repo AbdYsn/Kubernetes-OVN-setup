@@ -20,8 +20,12 @@ interface=`parse_conf interface`
 pci_address=`parse_conf pci_address`
 vfs_num=`parse_conf vfs_num`
 hostname_change_flag=`parse_conf change_machine_hostname`
+is_bond=`parse_conf is_bond`
+slave1=`parse_conf bond_slave1`
+slave2=`parse_conf bond_slave2`
 
 switchdev_scripts_name="switchdev_setup.sh"
+create_bond_script_name="create_a_bond.sh"
 slaves=""
 
 ##################################################
@@ -80,6 +84,24 @@ while test $# -gt 0; do
       shift
       ;;
 
+   --is-bond)
+      is_bond=$2
+      shift
+      shift
+      ;;
+
+   --slave1)
+      slave1=$2
+      shift
+      shift
+      ;;
+
+   --slave2)
+      slave2=$2
+      shift
+      shift
+      ;;
+
    --help | -h)
       echo "
 prepration_script [options] --ip <master ip> --master-hostname <master hostname> --hostname <hostname of host> --netmask <network netmask>\
@@ -91,19 +113,25 @@ options:
 	--interface | -i) <interface>			The name to be used to rename the netdev at the specified pci address and configure
 							the switchdev on.
    
-	--hostname) <host hostname>			The hostname of the current host
+	--hostname) <host hostname>			The hostname of the current host.
 
-	--set-hostname)					A flag used if you want to change the hostname of the machine to the specified host name
+	--set-hostname)					A flag used if you want to change the hostname of the machine to the specified host name.
 
-	--master-hostname) <master hostname>		The hostname of the master
+	--master-hostname) <master hostname>		The hostname of the master.
 
-	--ip) <ip of the master node>			The ip of the master node
+	--ip) <ip of the master node>			The ip of the master node.
 
 	--netmask) <netmask>				The cluster network netmask, used to configure the interface.
 
-	--pci-address)					The pci address of the net device to use, if present it is used to change the name of the net device
+	--pci-address)					The pci address of the net device to use, if present it is used to change the name of the net device.
 
-	--vfs-num)					The number of vfs to create for switchdev mode
+	--vfs-num)					The number of vfs to create for switchdev mode.
+
+	--is-bond)					Determine whether to create a bond with the name <interface>.
+
+	--slave1)					The bond first slave.
+
+	--slave2)					The bond second interface.
 
 "
       exit 0
@@ -239,7 +267,7 @@ hostname_add(){
 
 gopath_check(){
 change_content "$HOME/.bashrc" "GOPATH" "/root/go"
-change_content "$HOME/.bashrc" "PATH" "/usr/local/go/bin" amend
+change_content "$HOME/.bashrc" "PATH" ":/usr/local/go/bin" amend
 change_content "$HOME/.bashrc" "KUBECONFIG" "/etc/kubernetes/admin.conf"
 }
 
@@ -287,7 +315,7 @@ system_args_check(){
       systemctl disable firewalld
    fi
 
-   if [[ -z "`grep $interface /sys/class/net/bonding_masters`" ]]:
+   if [[ -z "$is_bond" ]]:
    then
       add_switchdev
    else
@@ -307,14 +335,15 @@ add_switchdev(){
 
 add_slaves_switchdev(){
    slaves=`cat /sys/class/net/$interface/bonding/slaves`
+
    if [[ -n `grep $switchdev_scripts_name /etc/rc.d/rc.local` ]]
    then
       sed -i "/$switchdev_scripts_name/d" /etc/rc.d/rc.local
    fi
-   for slave in $slaves
-   do
-      echo "$my_path/$switchdev_scripts_name $slave $vfs_num" >> /etc/rc.d/rc.local
-   done
+
+   echo "$my_path/$switchdev_scripts_name $slave1 $vfs_num" >> /etc/rc.d/rc.local
+   echo "$my_path/$switchdev_scripts_name $slave2 $vfs_num" >> /etc/rc.d/rc.local
+
    chmod +x $my_path/$switchdev_scripts_name
    chmod +x /etc/rc.d/rc.local
 }
@@ -391,6 +420,10 @@ change_content(){
 ##################################################
 ##################################################
 
+if [[ -n "$is_bond" ]]
+then
+   ./$create_bond_script_name
+fi
 
 hostname_add $master_ip $master_hostname
 hostname_add $host_ip $hostname
@@ -406,14 +439,12 @@ interface_name_check
 interface_ip_config $interface
 if [[ -z $pci_address ]]
 then
-   if [[ -z "`grep $interface /sys/class/net/bonding_masters`" ]]:
+   if [[ -z "$is_bond" ]]
    then
       ./$switchdev_scripts_name $interface $vfs_num
    else
-      for slave in $slaves
-      do
-         ./$switchdev_scripts_name $slave $vfs_num
-      done      
+      ./$switchdev_scripts_name $slave1 $vfs_num
+      ./$switchdev_scripts_name $slave2 $vfs_num
    fi
 fi
 if [[ `ls /sys/class/net/$interface/device/ | grep -c "virtfn[0-9]*"` != "$vfs_num" ]]

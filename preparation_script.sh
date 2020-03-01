@@ -340,12 +340,6 @@ change_interface_name(){
    
 }
 
-interface_ip_config(){
-   conf_file=/etc/sysconfig/network-scripts/ifcfg-$1
-   change_content $conf_file IPADDR $host_ip
-   change_content $conf_file NETMASK $netmask
-}
-
 change_content(){
    file=$1
    content=$2
@@ -383,7 +377,6 @@ gopath_check
 kubernetes_repo_check
 system_args_check
 interface_name_check
-interface_ip_config $interface
 if [[ -z $pci_address ]]
 then
    ./$switchdev_scripts_name $interface $vfs_num

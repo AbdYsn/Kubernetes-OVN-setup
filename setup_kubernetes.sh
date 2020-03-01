@@ -11,7 +11,9 @@ parse_conf(){
    fi
 }
 
+interface=`parse_conf interface`
 hostip=`parse_conf master_ip`
+netmask=`parse_conf netmask`
 hostname=`parse_conf master_hostname`
 token=`parse_conf token`
 ca_hash=`parse_conf ca_hash`
@@ -37,9 +39,21 @@ while test $# -gt 0; do
       shift
       shift
       ;;
-   
+
+   --interface| -i)
+      interface=$2
+      shift
+      shift
+      ;;
+
    --ip)
       hostip=$2
+      shift
+      shift
+      ;;
+   
+   --netmask)
+      netmask=$2
       shift
       shift
       ;;
@@ -79,7 +93,11 @@ options:
    
 	--hostname) <cluster hostname>			The hostname to use for the cluster creating
 
-	--ip) <ip of cluster admin>			The ip of the master host
+	--interface | -i) <interface>			The interface to access the cluster.
+
+        --ip) <ip>					The ip of the host.
+
+        --netmask) <the netmask to use>			The netmask of the network to access the cluster.
 
 	--no-deps)					Do not install the dependencies, use this only if you have ran the 
 							command before
@@ -124,15 +142,6 @@ then
       echo "a token to join the cluster was provided \
             but no ca_cert hash was provided, please provide\
             one, EXITTING ....."
-      exit 1
-   fi
-else
-   if [[ -z $hostip ]]
-   then
-      echo "The ip address was not provided !!!
-      Please provide one using the option --ip
-      for more informaton see the help menu --help or -h
-      Exitting ...."
       exit 1
    fi
 fi
@@ -287,6 +296,9 @@ then
    kubernetes_install
    docker_install
 fi
+
+./utils/interface_prepare.sh --interface "$interface" --ip "$host_ip" --netmask \
+"$netmask"
 
 init_kubadmin
 

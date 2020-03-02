@@ -17,10 +17,7 @@ netmask=`parse_conf netmask`
 host_ip=`parse_conf host_ip`
 hostname=`parse_conf hostname`
 interface=`parse_conf interface`
-vfs_num=`parse_conf vfs_num`
 hostname_change_flag=`parse_conf change_machine_hostname`
-
-switchdev_scripts_name="switchdev_setup.sh"
 
 ##################################################
 ##################################################
@@ -66,12 +63,6 @@ while test $# -gt 0; do
       shift
       ;;
 
-   --vfs-num)
-      vfs_num=$2
-      shift
-      shift
-      ;;
-
    --help | -h)
       echo "
 prepration_script [options] --ip <master ip> --master-hostname <master hostname> --hostname <hostname of host> --netmask <network netmask>\
@@ -80,8 +71,7 @@ prepration_script [options] --ip <master ip> --master-hostname <master hostname>
 
 options:
  
-	--interface | -i) <interface>			The name to be used to rename the netdev at the specified pci address and configure
-							the switchdev on.
+	--interface | -i) <interface>			The name to be used to rename the netdev at the specified pci address.
    
 	--hostname) <host hostname>			The hostname of the current host
 
@@ -92,8 +82,6 @@ options:
 	--ip) <ip of the master node>			The ip of the master node
 
 	--netmask) <netmask>				The cluster network netmask, used to configure the interface.
-
-	--vfs-num)					The number of vfs to create for switchdev mode
 
 "
       exit 0
@@ -159,23 +147,7 @@ then
    exit 1
 fi
 
-if [[ -z "$vfs_num" ]]
-then
-   echo "The number of vfs was not provided !!!
-   Please provide one using the option --interface
-   for more informaton see the help menu --help or -h
-   Exitting ...."
-   exit 1
-fi
-
 my_path=`pwd`
-if [[ ! -f $my_path/$switchdev_scripts_name ]]
-then
-   echo "$my_path/$switchdev_scripts_name: no such file
-   please run the script from inside the dir containing the 
-   automation scripts or be sure it exists there!!"
-   exit 1
-fi
 
 if [[ -z "$host_ip" ]]
 then
@@ -276,18 +248,6 @@ system_args_check(){
    then 
       systemctl disable firewalld
    fi
-
-   if [[ -z `grep $switchdev_scripts_name /etc/rc.d/rc.local` ]]
-   then
-      echo "$my_path/$switchdev_scripts_name $interface $vfs_num" >> /etc/rc.d/rc.local
-   elif [[ `grep $switchdev_scripts_name /etc/rc.d/rc.local | cut -d" " -f 2` != "$interface" ]] ||\
-    [[ `grep $switchdev_scripts_name /etc/rc.d/rc.local | cut -d" " -f 3` != "$vfs_num" ]]
-   then
-      match_re="$switchdev_scripts_name [0-9a-zA-Z]* [0-9]*"
-      sed -i "s/$match_re/$switchdev_scripts_name $interface $vfs_num/g" /etc/rc.d/rc.local
-   fi
-   chmod +x $my_path/$switchdev_scripts_name
-   chmod +x /etc/rc.d/rc.local
 }
 
 change_content(){
@@ -326,13 +286,4 @@ fi
 gopath_check
 kubernetes_repo_check
 system_args_check
-interface_name_check
-if [[ -z $pci_address ]]
-then
-   ./$switchdev_scripts_name $interface $vfs_num
-fi
-if [[ `ls /sys/class/net/$interface/device/ | grep -c "virtfn[0-9]*"` != "$vfs_num" ]]
-then
-   exit 1
-fi
 echo "Please reboot the host"

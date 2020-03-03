@@ -27,6 +27,8 @@ go_version=`parse_conf go_version`
 my_path=$(pwd)
 switchdev_scripts_name="switchdev_setup.sh"
 
+go_path='/usr/local/go'
+
 
 ##################################################
 ##################################################
@@ -182,6 +184,19 @@ fi
 ##################################################
 ##################################################
 
+
+gopath_check(){
+   if [[ "$GOPATH" != "$go_path" ]]
+   then
+      export GOPATH="/root/go"
+   fi
+   if [[ ! "$PATH" =~ :"$go_path/bin":? ]]
+   then
+      export PATH=$PATH:"$go_path"/bin
+   fi
+   change_value "$HOME/.bashrc" "export GOPATH" "/root/go"
+   change_value "$HOME/.bashrc" "export PATH" "\$PATH:$go_path/bin"
+}
 
 golang_install(){
    logger "installing go"
@@ -340,6 +355,20 @@ error_check(){
    fi 
 }
 
+change_value(){
+   file=$1
+   wanted_variable=$2
+   wanted_value=$3
+   if [[ ! -f "$file" ]]
+   then
+      echo "no such file $file"
+      echo "Exiting ..."
+      exit 1
+   fi
+   sed -i "/^$wanted_variable/d" $file
+   echo "$wanted_variable=$wanted_value" >> $file
+}
+
 
 ##################################################
 ##################################################
@@ -347,6 +376,8 @@ error_check(){
 ##################################################
 ##################################################
 
+
+gopath_check
 
 if [[ $install_deps == "true" ]]
 then

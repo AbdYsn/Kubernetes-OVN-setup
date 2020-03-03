@@ -19,6 +19,9 @@ net_cidr=`parse_conf net_cidr`
 svc_cidr=`parse_conf svc_cidr`
 master=`parse_conf is_master`
 
+go_path='/usr/local/go'
+
+
 ##################################################
 ##################################################
 ##################   input   #####################
@@ -143,6 +146,19 @@ fi
 ##################################################
 
 
+gopath_check(){
+   if [[ "$GOPATH" != "$go_path" ]]
+   then
+      export GOPATH=/root/go
+   fi
+   if [[ ! "$PATH" =~ :"$go_path/bin":? ]]
+   then
+      export PATH=$PATH:"$go_path"/bin
+   fi
+   change_value "$HOME/.bashrc" "export GOPATH" "/root/go"
+   change_value "$HOME/.bashrc" "export PATH" "\$PATH:$go_path/bin"
+}
+
 ovn_cni_setup(){
    if [[ ! -d $HOME/ovn-kubernetes/ ]]
    then
@@ -243,11 +259,28 @@ check_dir(){
       fi
 }
 
+change_value(){
+   file=$1
+   wanted_variable=$2
+   wanted_value=$3
+   if [[ ! -f "$file" ]]
+   then
+      echo "no such file $file"
+      echo "Exiting ..."
+      exit 1
+   fi
+   sed -i "/^$wanted_variable/d" $file
+   echo "$wanted_variable=$wanted_value" >> $file
+}
+
+
 ##################################################
 ##################################################
 ###################   Main   #####################
 ##################################################
 ##################################################
+
+gopath_check
 
 ovn_cni_setup
 

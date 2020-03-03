@@ -17,7 +17,6 @@ netmask=`parse_conf netmask`
 host_ip=`parse_conf host_ip`
 hostname=`parse_conf hostname`
 interface=`parse_conf interface`
-pci_address=`parse_conf pci_address`
 vfs_num=`parse_conf vfs_num`
 hostname_change_flag=`parse_conf change_machine_hostname`
 
@@ -67,12 +66,6 @@ while test $# -gt 0; do
       shift
       ;;
 
-   --pci-address)
-      pci_address=$2
-      shift
-      shift
-      ;;
-
    --vfs-num)
       vfs_num=$2
       shift
@@ -99,8 +92,6 @@ options:
 	--ip) <ip of the master node>			The ip of the master node
 
 	--netmask) <netmask>				The cluster network netmask, used to configure the interface.
-
-	--pci-address)					The pci address of the net device to use, if present it is used to change the name of the net device
 
 	--vfs-num)					The number of vfs to create for switchdev mode
 
@@ -297,47 +288,6 @@ system_args_check(){
    fi
    chmod +x $my_path/$switchdev_scripts_name
    chmod +x /etc/rc.d/rc.local
-}
-
-interface_name_check(){
-   
-   if [[ -z $pci_address ]]
-   then
-      return
-   fi
-
-   old_interface_name=`ls /sys/bus/pci/devices/$pci_address/net/`
-   if [[ $old_interface_name != "$interface" ]]
-   then 
-      interfaces_list=`ls /sys/class/net`
-      for sys_interface in $interfaces_list;
-      do
-         if [[ $sys_interface == "$interface" ]]
-         then
-            # in this case there is an interface with the name specified, but it does not
-            # have the same pci address, the user should choose another name.
-            exit 1
-         fi
-      done
-   fi
-   change_interface_name $pci_address $interface $old_interface_name
-}
-
-change_interface_name(){
-   check_line=`grep $1 /etc/udev/rules.d/70-persistent-ipoib.rules | sed 's/\"/\\\"/g' | sed 's/\*/\\\*/g'`
-   if [[ -z $check_line ]]
-   then
-      echo "ACTION==\"add\", SUBSYSTEM==\"net\", DRIVERS==\"?*\", KERNELS==\"$1\", NAME=\"$2\"" \
-      >> /etc/udev/rules.d/70-persistent-ipoib.rules
-   else
-      new_line="ACTION==\"add\", SUBSYSTEM==\"net\", DRIVERS==\"?*\", KERNELS==\"$1\", NAME=\"$2\""
-      sed -i "s/$check_line/$new_line/g" /etc/udev/rules.d/70-persistent-ipoib.rules
-   fi
-
-   change_content /etc/sysconfig/network-scripts/ifcfg-$3 "NAME" $2
-   change_content /etc/sysconfig/network-scripts/ifcfg-$3 "DEVICE" $2
-   mv /etc/sysconfig/network-scripts/ifcfg-$3 /etc/sysconfig/network-scripts/ifcfg-$2
-   
 }
 
 change_content(){

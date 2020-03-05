@@ -13,7 +13,8 @@ parse_conf(){
 
 interface=`parse_conf interface`
 vfs_num=`parse_conf vfs_num`
-hostip=`parse_conf master_ip`
+master_ip=`parse_conf master_ip`
+host_ip=`parse_conf host_ip`
 netmask=`parse_conf netmask`
 hostname=`parse_conf master_hostname`
 token=`parse_conf token`
@@ -56,9 +57,15 @@ while test $# -gt 0; do
       shift
       shift
       ;;
+   
+   --master-ip)
+      master_ip=$2
+      shift
+      shift
+      ;;
 
-   --ip)
-      hostip=$2
+   --host-ip)
+      host_ip=$2
       shift
       shift
       ;;
@@ -114,7 +121,9 @@ options:
 
 	--vfs | -v) <vfs number>			The number of vfs to create on the interface.
 
-        --ip) <ip>					The ip of the host.
+	--master-ip) <master-ip>			The ip of the master node.
+
+	--host-ip) <host-ip>				The ip of the host.
 
         --netmask) <the netmask to use>			The netmask of the network to access the cluster.
 
@@ -154,6 +163,14 @@ then
    you can provide one using the option --hostname"
    hostname=`hostname -f`
    logger "the hostname that will be used is: $hostname"
+fi
+
+if [[ -z "$master_ip" ]]
+then
+   echo "The master IP address was not provided, please \
+provide one using the --master-ip option"
+   echo "Exiting...."
+   exit 1
 fi
 
 if [[ "$is_master" == "false" ]]
@@ -307,14 +324,14 @@ init_kubadmin(){
 
    if [[ "$is_master" == "true" ]]
    then 
-   	kubeadm init --apiserver-advertise-address=$hostip --node-name=$hostname  --skip-phases addon/kube-proxy --pod-network-cidr $net_cidr --service-cidr $svc_cidr
+   	kubeadm init --apiserver-advertise-address=$master_ip --node-name=$hostname  --skip-phases addon/kube-proxy --pod-network-cidr $net_cidr --service-cidr $svc_cidr
       export KUBECONFIG=/etc/kubernetes/admin.conf
       mkdir -p $HOME/.kube
       sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
       sudo chown $(id -u):$(id -g) $HOME/.kube/config
       error_check "kubectl cluster-info" "The cluster was not created"
    else
-      kubeadm join "$hostip:6443" --token $token --discovery-token-ca-cert-hash $ca_hash
+      kubeadm join "$master_ip:6443" --token $token --discovery-token-ca-cert-hash $ca_hash
       #cluster joining varification
    fi
 }

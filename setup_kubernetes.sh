@@ -25,7 +25,6 @@ install_deps=`parse_conf install_deps`
 is_master=`parse_conf is_master`
 go_version=`parse_conf go_version`
 
-my_path=$(pwd)
 switchdev_scripts_name="switchdev_setup.sh"
 
 go_path='/usr/local/go'
@@ -186,9 +185,9 @@ then
    fi
 fi
 
-if [[ ! -f $my_path/utils/$switchdev_scripts_name ]]
+if [[ ! -f utils/"$switchdev_scripts_name" ]]
 then
-   echo "$my_path/utils/$switchdev_scripts_name: no such file
+   echo "utils/$switchdev_scripts_name: no such file
    please run the script from inside the dir containing the
    automation scripts or be sure it exists there!!"
    exit 1
@@ -263,8 +262,9 @@ cnis_install(){
    if [[ ! -d $GOPATH/src/github.com/intel/sriov-cni ]]
    then
       git clone https://github.com/intel/sriov-cni $GOPATH/src/github.com/intel/sriov-cni
-      cd $GOPATH/src/github.com/intel/sriov-cni
+      pushd $GOPATH/src/github.com/intel/sriov-cni
       make build
+      popd
    fi
 
    check_dir $GOPATH/src/github.com/intel/sriov-cni "failed to install sriov-cni"
@@ -306,7 +306,7 @@ docker_install(){
 }
 
 create_vfs(){
-   switchdev_path="$my_path"/utils
+   switchdev_path=`pwd`/utils
    if [[ -n $(grep "$switchdev_scripts_name" /etc/rc.d/rc.local) ]]
    then
       sed -i "/$switchdev_scripts_name/d" /etc/rc.d/rc.local

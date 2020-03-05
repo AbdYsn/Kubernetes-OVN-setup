@@ -16,7 +16,8 @@ vfs_num=`parse_conf vfs_num`
 master_ip=`parse_conf master_ip`
 host_ip=`parse_conf host_ip`
 netmask=`parse_conf netmask`
-hostname=`parse_conf master_hostname`
+master_hostname=`parse_conf master_hostname`
+hostname=`parse_conf hostname`
 token=`parse_conf token`
 ca_hash=`parse_conf ca_hash`
 net_cidr=`parse_conf net_cidr`
@@ -77,6 +78,12 @@ while test $# -gt 0; do
       shift
       ;;
 
+   --master-hostname)
+      master_hostname=$2
+      shift
+      shift
+      ;;
+
    --hostname)
       hostname=$2
       shift
@@ -94,7 +101,7 @@ while test $# -gt 0; do
       shift
       shift
       ;;
-   
+
    --no-deps)
       install_deps="fasle"
       shift
@@ -116,7 +123,9 @@ options:
 			<ca_cert_hash>			a cluster instead of creating one, pass to it the master token and the 
 							ca_cert_hash.
    
-	--hostname) <cluster hostname>			The hostname to use for the cluster creating
+	--hostname) <machine hostname>			The hostname of the machine.
+
+	--master-hostname) <master machine hostname>	The hostname of the master machine.
 
 	--interface | -i) <interface>			The interface to access the cluster.
 
@@ -170,6 +179,14 @@ if [[ -z "$master_ip" ]]
 then
    echo "The master IP address was not provided, please \
 provide one using the --master-ip option"
+   echo "Exiting...."
+   exit 1
+fi
+
+if [[ -z $master_hostname ]]
+then
+   echo "The master hostname was not provided, please \
+provide one using the --master-hostname option."
    echo "Exiting...."
    exit 1
 fi
@@ -242,6 +259,16 @@ gopath_check(){
    fi
    change_value "$HOME/.bashrc" "export GOPATH" "/root/go"
    change_value "$HOME/.bashrc" "export PATH" "\$PATH:$go_path/bin"
+}
+
+hostname_add(){
+   local_ip=$1
+   local_hostname=$2
+   if [[ -n "`grep "$local_ip" /etc/hosts`" ]]
+   then
+      sed -i "/$local_ip/d" /etc/hosts
+   fi
+   echo "$local_ip $local_hostname" >> /etc/hosts
 }
 
 golang_install(){
@@ -369,7 +396,7 @@ init_kubadmin(){
 
    if [[ "$is_master" == "true" ]]
    then 
-   	kubeadm init --apiserver-advertise-address=$master_ip --node-name=$hostname  --skip-phases addon/kube-proxy --pod-network-cidr $net_cidr --service-cidr $svc_cidr
+   	kubeadm init --apiserver-advertise-address=$master_ip --node-name=$master_hostname  --skip-phases addon/kube-proxy --pod-network-cidr $net_cidr --service-cidr $svc_cidr
       export KUBECONFIG=/etc/kubernetes/admin.conf
       mkdir -p $HOME/.kube
       sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
@@ -428,6 +455,8 @@ system_args_check
 
 gopath_check
 
+hostname_add $host_ip $hostname
+hostname_add $master_ip $master_hostname
 if [[ $install_deps == "true" ]]
 then
    golang_install

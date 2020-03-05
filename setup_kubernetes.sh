@@ -12,6 +12,7 @@ parse_conf(){
 }
 
 interface=`parse_conf interface`
+vfs_num=`parse_conf vfs_num`
 hostip=`parse_conf master_ip`
 netmask=`parse_conf netmask`
 hostname=`parse_conf master_hostname`
@@ -21,6 +22,9 @@ net_cidr=`parse_conf net_cidr`
 svc_cidr=`parse_conf svc_cidr`
 install_deps=`parse_conf install_deps`
 is_master=`parse_conf is_master`
+
+my_path=$(pwd)
+switchdev_scripts_name="switchdev_setup.sh"
 
 
 ##################################################
@@ -42,6 +46,12 @@ while test $# -gt 0; do
 
    --interface| -i)
       interface=$2
+      shift
+      shift
+      ;;
+
+   --vfs| -v)
+      vfs_num=$2
       shift
       shift
       ;;
@@ -95,6 +105,8 @@ options:
 
 	--interface | -i) <interface>			The interface to access the cluster.
 
+	--vfs | -v) <vfs number>			The number of vfs to create on the interface.
+
         --ip) <ip>					The ip of the host.
 
         --netmask) <the netmask to use>			The netmask of the network to access the cluster.
@@ -144,6 +156,14 @@ then
             one, EXITTING ....."
       exit 1
    fi
+fi
+
+if [[ ! -f $my_path/utils/$switchdev_scripts_name ]]
+then
+   echo "$my_path/utils/$switchdev_scripts_name: no such file
+   please run the script from inside the dir containing the
+   automation scripts or be sure it exists there!!"
+   exit 1
 fi
 
 
@@ -227,6 +247,19 @@ docker_install(){
    error_check "docker version" "docker is not installed correctlly"
 }
 
+create_vfs(){
+   switchdev_path="$my_path"/utils
+   if [[ -n $(grep "$switchdev_scripts_name" /etc/rc.d/rc.local) ]]
+   then
+      sed -i "/$switchdev_scripts_name/d" /etc/rc.d/rc.local
+   fi
+
+   echo "$switchdev_path/$switchdev_scripts_name -i $interface -v $vfs_num" >> /etc/rc.d/rc.local
+   chmod +x $switchdev_path/$switchdev_scripts_name
+   chmod +x /etc/rc.d/rc.local
+   bash "$switchdev_path"/"$switchdev_scripts_name" -i "$interface" -v "$vfs_num"
+}
+
 init_kubadmin(){
    if [[ `systemctl is-enabled openvswitch` == "disabled" ]]
    then
@@ -299,6 +332,8 @@ fi
 
 ./utils/interface_prepare.sh --interface "$interface" --ip "$host_ip" --netmask \
 "$netmask"
+
+create_vfs
 
 init_kubadmin
 

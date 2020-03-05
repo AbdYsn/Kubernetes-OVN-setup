@@ -201,6 +201,36 @@ fi
 ##################################################
 
 
+system_args_check(){
+   change_value "/etc/sysctl.conf" "net.ipv4.ip_forward" "1"
+   change_value "/etc/sysctl.conf" "net.bridge.bridge-nf-call-iptables" "1"
+   sysctl -p
+
+   if [[ -n `swapon -s` ]]
+   then
+      swapoff -a
+   fi
+
+   swap_line_numbers="`grep -x -n "[^#]*swap.*" /etc/fstab | cut -d":" -f 1`"
+   if [[ -n $swap_line_numbers ]]
+   then
+      for line_number in $swap_line_numbers;
+      do
+         sed -i "$line_number s/^/\#/g" /etc/fstab
+      done
+   fi
+
+   if [[ `systemctl is-active firewalld` != "inactive" ]]
+   then
+      systemctl stop firewalld
+   fi
+
+   if [[ `systemctl is-enabled firewalld` != "disabled" ]]
+   then
+      systemctl disable firewalld
+   fi
+}
+
 gopath_check(){
    if [[ "$GOPATH" != "$go_path" ]]
    then
@@ -393,6 +423,8 @@ change_value(){
 ##################################################
 ##################################################
 
+
+system_args_check
 
 gopath_check
 

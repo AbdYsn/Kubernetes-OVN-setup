@@ -22,6 +22,7 @@ net_cidr=`parse_conf net_cidr`
 svc_cidr=`parse_conf svc_cidr`
 install_deps=`parse_conf install_deps`
 is_master=`parse_conf is_master`
+go_version=`parse_conf go_version`
 
 my_path=$(pwd)
 switchdev_scripts_name="switchdev_setup.sh"
@@ -91,6 +92,12 @@ while test $# -gt 0; do
       shift
       ;;
 
+   --go-version)
+      go_version=$2
+      shift
+      shift
+      ;;
+
    --help | -h)
       echo "
 setup_kubernetes.sh [options]: set up a kubernetes kubeadm environment with offloading enabled on the host machine.
@@ -117,6 +124,8 @@ options:
 	--svc-cidr)					The service ip to use for the cluster
 
 	--net-cidr)					The pod network cidr to use for the cluster
+
+	--go-version)					The go version to install.
 
 "
       exit 0
@@ -174,14 +183,31 @@ fi
 ##################################################
 
 
-
 golang_install(){
    logger "installing go"
-   yum install wget  git -y
-   if [[ -z "`go version`" ]]
+   if [[ -z "$go_version" ]]
    then
-      wget https://dl.google.com/go/go1.12.12.linux-amd64.tar.gz
-      tar -C /usr/local -xzf go1.12.12.linux-amd64.tar.gz
+      echo "no go version provided. please provide one using \
+--go-version option"
+      echo "Exiting...."
+      exit 1
+   fi
+   go_tar=go"$go_version".linux-amd64.tar.gz
+   yum install wget  git -y
+   if [[ ! "`go version`" =~ "$go_version" ]]
+   then
+      if [[ ! -f $go_tar ]]
+      then
+         if [[ ! `wget -S --spider https://dl.google.com/go/"$go_tar"  2>&1 | grep 'HTTP/1.1 200 OK'` ]]
+         then
+            echo "no go version $go_version upstream!"
+            echo "Exiting...."
+            exit 1
+         fi
+         wget https://dl.google.com/go/$go_tar
+      fi
+      rm -rf /usr/local/go
+      tar -C /usr/local -xzf $go_tar
    fi
 
    mkdir -p /etc/cni/net.d/

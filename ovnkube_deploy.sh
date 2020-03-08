@@ -146,6 +146,14 @@ fi
 ##################################################
 
 
+k8s_confs(){
+   if [[ "$KUBECONFIG" != "/etc/kubernetes/admin.conf" ]]
+   then
+      export KUBECONFIG=/etc/kubernetes/admin.conf
+   fi
+   change_value "$HOME/.bashrc" "export KUBECONFIG" "/etc/kubernetes/admin.conf"
+}
+
 gopath_check(){
    if [[ "$GOPATH" != "$go_path" ]]
    then
@@ -281,6 +289,8 @@ change_value(){
 ##################################################
 
 gopath_check
+
+k8s_confs
 
 ovn_cni_setup
 

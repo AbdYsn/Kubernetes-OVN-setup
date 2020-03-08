@@ -6,6 +6,7 @@ fi
 
 pod_name="sriov-pod"
 replica_count="2"
+yaml_dir='../yaml'
 
 if [[ -z "$pod_name" ]] || [[ -z "$replica_count" ]]
 then 
@@ -18,8 +19,8 @@ if [[ -n "$nodes" ]]
 then
     for node in $nodes;
     do
-        copy_name="yaml/gen_pod-$node.yaml"
-        cp "yaml/pod_deplyoment_template.yaml" "$copy_name"
+        copy_name="$yaml_dir/gen_pod-$node.yaml"
+        cp "$yaml_dir/pod_deplyoment_template.yaml" "$copy_name"
         sed -i "s/{podName}/$pod_name/g" $copy_name
         sed -i "s/{replicas}/$replica_count/g" $copy_name
         sed -i "s/{nodeName}/$node/g" $copy_name

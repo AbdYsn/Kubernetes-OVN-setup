@@ -184,21 +184,6 @@ if [[ "$old_hostname" != "$hostname" ]]
 fi
 }
 
-hostname_add(){
-   ip=$1
-   local_hostname=$2
-   if [[ -z "`grep $ip /etc/hosts`" ]]
-   then
-      echo "$ip $local_hostname" >> /etc/hosts
-   else
-      if [[ "`grep $ip /etc/hosts | cut -d\" \" -f 2`" != "$local_hostname" ]]
-      then
-         old_host="`grep $ip /etc/hosts | cut -d" " -f 2`"
-         sed -i "s/$old_host/$local_hostname/g" /etc/hosts
-      fi
-   fi
-}
-
 gopath_check(){
 change_content "$HOME/.bashrc" "KUBECONFIG" "/etc/kubernetes/admin.conf"
 }
@@ -244,8 +229,6 @@ change_content(){
 ##################################################
 
 
-hostname_add $master_ip $master_hostname
-hostname_add $host_ip $hostname
 if [[ $hostname_change_flag == "true" ]]
 then
    change_hostname

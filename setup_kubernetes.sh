@@ -248,6 +248,29 @@ system_args_check(){
    fi
 }
 
+k8s_repo_setup(){
+   if [[ ! -f "/etc/yum.repos.d/kubernetes.repo" ]] || [[ -z `\
+   grep 'gpgkey=https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg' /etc/yum.repos.d/kubernetes.repo` ]]
+   then
+   sudo tee -a /etc/yum.repos.d/kubernetes.repo <<EOF
+[kubernets-stable]
+name=Kuberenets
+baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
+enabled=1
+gpgcheck=1
+gpgkey=https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+EOF
+  fi
+}
+
+k8s_confs(){
+   if [[ "$KUBECONFIG" != "/etc/kubernetes/admin.conf" ]]
+   then
+      export KUBECONFIG=/etc/kubernetes/admin.conf
+   fi
+   change_value "$HOME/.bashrc" "export KUBECONFIG" "/etc/kubernetes/admin.conf"
+}
+
 gopath_check(){
    if [[ "$GOPATH" != "$go_path" ]]
    then
@@ -342,6 +365,7 @@ cnis_install(){
 }
 
 kubernetes_install(){ 
+   k8s_repo_setup
    yum -y install kubelet apt-transport-https ca-certificates curl software-properties-common \
    python3-pip virtualenv python3-setuptools kubeadm
    systemctl enable kubelet
@@ -401,6 +425,7 @@ init_kubadmin(){
       mkdir -p $HOME/.kube
       sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
       sudo chown $(id -u):$(id -g) $HOME/.kube/config
+      k8s_confs
       error_check "kubectl cluster-info" "The cluster was not created"
    else
       kubeadm join "$master_ip:6443" --token $token --discovery-token-ca-cert-hash $ca_hash

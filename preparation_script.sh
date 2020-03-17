@@ -171,19 +171,6 @@ fi
 ##################################################
 
 
-change_hostname(){  
-old_hostname=`hostname`
-if [[ "$old_hostname" != "$hostname" ]]
-   then
-      hostname_line="`grep $old_hostname /etc/hosts`"
-      if [[ -n $hostname_line ]]
-      then
-         sed -i "s/$old_hostname/$hostname/g" /etc/hosts
-      fi
-      hostnamectl set-hostname $hostname
-fi
-}
-
 change_content(){
    file=$1
    content=$2
@@ -209,11 +196,6 @@ change_content(){
 ##################################################
 ##################################################
 
-
-if [[ $hostname_change_flag == "true" ]]
-then
-   change_hostname
-fi
 
 gopath_check
 kubernetes_repo_check

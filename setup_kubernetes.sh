@@ -7,7 +7,7 @@ parse_conf(){
    param=$1
    if [[ -f local.conf ]]
    then
-      `grep -x $param"=.*" local.conf | cut -d"=" -f 2 -s`
+      grep -x $param"=.*" local.conf | cut -d"=" -f 2 -s
    fi
 }
 

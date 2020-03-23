@@ -83,7 +83,7 @@ set_sriov_device(){
    local_interface=$1
    device="`cat /sys/class/net/$local_interface/device/sriov_vf_device`"
    device_line_number=`awk "/device/ {print NR}" sriov-setup.yaml`
-   sed -i "$device_line_number s/\[.*\]/[$device]/" sriov-setup.yaml
+   sed -i "$device_line_number s/\[.*\]/[\"$device\"]/" sriov-setup.yaml
 }
 
 deploy_components(){

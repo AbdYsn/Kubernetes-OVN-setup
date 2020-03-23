@@ -6,7 +6,12 @@ set -x
 interface=""
 host_ip=""
 netmask=""
-
+bond=""
+bond_mode="4"
+bond_miion="100"
+bond_updelay="12000"
+bond_downdelay="0"
+bond_master=""
 
 ##################################################
 ##################################################
@@ -36,6 +41,42 @@ while test $# -gt 0; do
       shift
       ;;
 
+   --bond)
+      bond=$2
+      shift
+      shift
+      ;;
+
+   --bond-mode)
+      bond_mode=$2
+      shift
+      shift
+      ;;
+
+   --bond-miion)
+      bond_miion=$2
+      shift
+      shift
+      ;;
+
+   --bond-updelay)
+      bond_updelay=$2
+      shift
+      shift
+      ;;
+
+   --bond-downdelay)
+      bond_downdelay=$2
+      shift
+      shift
+      ;;
+
+   --bond-master)
+      bond_master=$2
+      shift
+      shift
+      ;;
+
    --help | -h)
       echo "
 interface_prepare.sh -i <interface> --ip <ip> --netmask <netmask>: A script "\
@@ -50,6 +91,18 @@ options:
 
 	--netmask) <netmask>			The netmask to be configured "\
 "on the interface.
+
+	--bond) <bond mode>			An optional flag to configure the interface as either a bond master or a bond slave. The bond master can be configured more using the options: --bond-mode, --bond-miion, --bond-updelay, --bond-downdelay. The bond slave can be configured using the option --bond-master.
+
+	--bond-mode) <bond mode>		Defaulted to 4 (active-active) mode.
+
+	--bond-miion) <bond miion>		Defaulted to 100.
+
+	--bond-updelay) <bond up delay>		Defaulted to 12000.
+
+	--bond-downdelay) <bond down delay>	defaulted to 0.
+
+	--bond-master) <master interface name>	In case the interface is configured to be a slave interface, this option sets its master.
 
 "
       exit 0
@@ -125,20 +178,51 @@ check_interface(){
    fi
 }
 
-interface_ip_config(){
-   local_interface=$1
-   local_ip=$2
-   local_netmask=$3
-
-   conf_file=/etc/sysconfig/network-scripts/ifcfg-$local_interface
-   
+common_configs(){
+local_interface=$1
    cat << EOF > $conf_file
 DEVICE=$local_interface
+ONBOOT=yes
+NM_CONTROLLED=no
+EOF
+}
+
+ip_configs(){
+   local_ip=$1
+   local_netmask=$2
+
+   cat << EOF >> $conf_file
 IPADDR=$local_ip
 NETMASK=$local_netmask
 BOOTPROTO=static
-ONBOOT=yes
-NM_CONTROLLED=no
+EOF
+}
+
+bond_master_configs(){
+local_mode=$1
+local_miimon=$2
+local_updelay=$3
+local_downdelay=$4
+
+   cat << EOF >> $conf_file
+TYPE=Bond
+BONDING_OPTS="mode=$local_mode miimon=$local_miimon updelay=$local_updelay downdelay=local_downdelay"
+DEFROUTE=yes
+IPV6INIT=no
+USERCTL=no
+EOF
+}
+
+bond_slave_configs(){
+local_interface=$1
+local_master=$2
+   cat << EOF >> $conf_file
+BOOTPROTO=none
+DEFROUTE=yes
+IPV4_FAILURE_FATAL=no
+NAME=$local_interface
+MASTER=$local_master
+SLAVE=yes
 EOF
 }
 
@@ -150,7 +234,10 @@ EOF
 ##################################################
 
 
+conf_file=/etc/sysconfig/network-scripts/ifcfg-"$local_interface"
+
 check_interface $interface
-interface_ip_config $interface $host_ip $netmask
+common_configs $interface
+ip_configs $host_ip $netmask
 systemctl restart network
 

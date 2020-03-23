@@ -84,6 +84,7 @@ kubernetes_cleanup(){
     kubeadm reset -f 
     rm -rf $HOME/.kube/config
     package_delete kubeadm
+    systemctl disable kubelet
     package_delete kubelet
     package_check "kubeadm" "the package kubeadm was not removed"
     package_check "kubelet" "the package kubelet was not removed"

@@ -7,7 +7,7 @@ parse_conf(){
    param=$1
    if [[ -f local.conf ]]
    then
-      echo `grep -x $param"=.*" local.conf | cut -d"=" -f 2`
+      `grep -x $param"=.*" local.conf | cut -d"=" -f 2 -s`
    fi
 }
 
@@ -25,6 +25,7 @@ svc_cidr=`parse_conf svc_cidr`
 install_deps=`parse_conf install_deps`
 is_master=`parse_conf is_master`
 go_version=`parse_conf go_version`
+topology_manager=`parse_conf topology_manager`
 
 switchdev_scripts_name="switchdev_setup.sh"
 
@@ -113,6 +114,12 @@ while test $# -gt 0; do
       shift
       ;;
 
+   --topology-manager)
+      topology_manager=$2
+      shift
+      shift
+      ;;
+
    --help | -h)
       echo "
 setup_kubernetes.sh [options]: set up a kubernetes kubeadm environment with offloading enabled on the host machine.
@@ -145,6 +152,8 @@ options:
 	--net-cidr)					The pod network cidr to use for the cluster
 
 	--go-version)					The go version to install.
+
+	--topology-manager) <topology manager policy>	A flag to configure the kubelet topology manager policy.
 
 "
       exit 0
@@ -368,9 +377,17 @@ kubernetes_install(){
    k8s_repo_setup
    yum -y install kubelet apt-transport-https ca-certificates curl software-properties-common \
    python3-pip virtualenv python3-setuptools kubeadm
-   systemctl enable kubelet
-   systemctl start kubelet
+   
+   if [[ "`systemctl is-enabled kubelet`" != "enabled" ]]
+   then
+      systemctl enable kubelet
+   fi
 
+   if [[ "`systemctl is-active kubelet`" != "active" ]]
+   then
+      systemctl start kubelet
+   fi
+ 
    error_check "kubelet --version" "kubelet not installed"
    error_check "kubeadm version" "kubeadm not installed"    
 }
@@ -496,6 +513,11 @@ fi
 create_vfs
 
 init_kubadmin
+
+if [[ -n "$topology_manager" ]]
+then
+   utils/topology_manager_setup.sh --policy "$topology_manager" --cpus auto --interface $interface
+fi
 
 if [[ "$is_master" == "true" ]]
 then

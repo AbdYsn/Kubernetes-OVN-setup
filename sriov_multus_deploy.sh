@@ -12,6 +12,8 @@ parse_conf(){
 }
 
 interface=`parse_conf interface`
+is_bond=`parse_conf is_bond`
+slave1=`parse_conf slave1`
 
 while test $# -gt 0; do
   case "$1" in
@@ -90,8 +92,13 @@ deploy_components(){
    if [[ -d yaml/ ]]
    then
       cd yaml/
-
-      set_sriov_device $interface
+      
+      if [[ "$is_bond" == "true" ]]
+      then
+         set_sriov_device "$slave1"
+      else
+         set_sriov_device "$interface"
+      fi
 
       kubectl create -f sriov-setup.yaml
       kubectl create -f sriovdp-daemonset.yaml
@@ -114,7 +121,19 @@ deploy_components(){
 ##################################################
 
 
-check_interface "$interface"
+if [[ "$is_bond" == "true" ]]
+then
+   if [[ -n "$slave1" ]]
+   then
+      check_interface "$slave1"
+   else
+      echo "is_bond is true, but no slave1 provided!!, please provide one using --slave1 option."
+      echo "Exiting...."
+      exit 1
+   fi
+else
+   check_interface "$interface"
+fi
 
 
 ##################################################

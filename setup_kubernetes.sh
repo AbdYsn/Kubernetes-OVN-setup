@@ -450,6 +450,17 @@ init_kubadmin(){
    fi
 }
 
+build_image(){
+   pushd yaml/examples
+   if [[ -f Dockerfile ]]
+   then
+      docker build -t iperf_image .
+   else
+      echo "Warning: could not find a Dockerfile, please make sure a dockerfile exists in yaml/examples dir!!"
+   fi
+   popd
+}
+
 check_dir(){
    dir=$1
    error_msg=$2
@@ -518,6 +529,8 @@ if [[ -n "$topology_manager" ]]
 then
    utils/topology_manager_setup.sh --policy "$topology_manager" --cpus auto --interface $interface
 fi
+
+build_image
 
 if [[ "$is_master" == "true" ]]
 then

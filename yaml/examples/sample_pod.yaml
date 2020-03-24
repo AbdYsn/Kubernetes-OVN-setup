@@ -1,0 +1,24 @@
+kind: Pod
+apiVersion: v1
+metadata:
+  name: iperf-client
+  labels:
+    name: iperf-client
+    app: iperf
+  annotations:
+    v1.multus-cni.io/default-network: sriov-ovn-1
+spec:
+#  nodeSelector:
+#        kubernetes.io/hostname: {nodeName}
+  containers:
+  - image: iperf_image:latest
+    command:
+      - sleep
+      - "3600"
+    imagePullPolicy: IfNotPresent
+    name: iperf-client
+    resources:
+      requests:
+        intel.com/sriov: '1'
+      limits:
+        intel.com/sriov: '1'

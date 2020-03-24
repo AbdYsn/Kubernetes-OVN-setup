@@ -108,8 +108,8 @@ package_delete(){
 }
 
 cnis_cleanup(){
-    delete_dir $HOME/ovn-kubernetes/
-    
+    ./ovn/ovn_clean.sh
+
     delete_dir $GOPATH/src/github.com/intel/sriov-network-device-plugin
 
     delete_dir $GOPATH/src/github.com/intel/sriov-cni

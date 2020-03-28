@@ -26,6 +26,9 @@ install_deps=`parse_conf install_deps`
 is_master=`parse_conf is_master`
 go_version=`parse_conf go_version`
 topology_manager=`parse_conf topology_manager`
+is_bond=`parse_conf is_bond`
+slave1=`parse_conf slave1`
+slave2=`parse_conf slave2`
 
 switchdev_scripts_name="switchdev_setup.sh"
 
@@ -120,6 +123,23 @@ while test $# -gt 0; do
       shift
       ;;
 
+   --is-bond)
+      is_bond="true"
+      shift
+      ;;
+
+   --slave1)
+      slave1=$2
+      shift
+      shift
+      ;;
+
+   --slave2)
+      slave2=$2
+      shift
+      shift
+      ;;
+
    --help | -h)
       echo "
 setup_kubernetes.sh [options]: set up a kubernetes kubeadm environment with offloading enabled on the host machine.
@@ -154,6 +174,12 @@ options:
 	--go-version)					The go version to install.
 
 	--topology-manager) <topology manager policy>	A flag to configure the kubelet topology manager policy.
+
+	--is-bond)					Whether interface is a bond interface or not.
+
+	--slave1) <slave interface 1>			In case of a bond interface the first slave of the bond interface.
+
+	--slave2) <slave interface 2>			In case of a bond interface the second slave of the bond interface.
 
 "
       exit 0
@@ -217,6 +243,23 @@ then
    please run the script from inside the dir containing the
    automation scripts or be sure it exists there!!"
    exit 1
+fi
+
+if [[ "$is_bond" == "true" ]]
+then
+   if [[ -z "$slave1" ]]
+   then
+      echo "The interface was configured to be a bond, but slave1 was not provided. Please provide one using the --slave1 option or slave1 option in the local.conf file."
+      echo "Exiting...."
+      exit 1
+   fi
+
+   if [[ -z "$slave2" ]]
+   then
+      echo "The interface was configured to be a bond, but slave2 was not provided. Please provide one using the --slave2 option or slave2 option in the local.conf file."
+      echo "Exiting...."
+      exit 1
+   fi
 fi
 
 
@@ -404,16 +447,22 @@ docker_install(){
 }
 
 create_vfs(){
+   local_interface=$1
+   local_vfs=$2
    switchdev_path=`pwd`/utils
+
+   echo "$switchdev_path/$switchdev_scripts_name -i $local_interface -v $local_vfs" >> /etc/rc.d/rc.local
+   bash "$switchdev_path"/"$switchdev_scripts_name" -i "$local_interface" -v "$local_vfs"
+
+   chmod +x $switchdev_path/$switchdev_scripts_name
+   chmod +x /etc/rc.d/rc.local
+}
+
+clean_rclocal(){
    if [[ -n $(grep "$switchdev_scripts_name" /etc/rc.d/rc.local) ]]
    then
       sed -i "/$switchdev_scripts_name/d" /etc/rc.d/rc.local
    fi
-
-   echo "$switchdev_path/$switchdev_scripts_name -i $interface -v $vfs_num" >> /etc/rc.d/rc.local
-   chmod +x $switchdev_path/$switchdev_scripts_name
-   chmod +x /etc/rc.d/rc.local
-   bash "$switchdev_path"/"$switchdev_scripts_name" -i "$interface" -v "$vfs_num"
 }
 
 init_kubadmin(){
@@ -507,10 +556,20 @@ then
    docker_install
 fi
 
-./utils/interface_prepare.sh --interface "$interface" --ip "$host_ip" --netmask \
-"$netmask"
+clean_rclocal
 
-create_vfs
+if [[ "$is_bond" == "false" ]]
+then
+   ./utils/interface_prepare.sh --interface "$interface" --ip "$host_ip" --netmask "$netmask"
+   create_vfs "$interface" "$vfs_num"
+elif [[ "$is_bond" == "true" ]]
+then
+   ./utils/interface_prepare.sh --interface "$slave1" --bond slave --bond-master "$interface" --no-restart
+   create_vfs "$slave1" "$vfs_num"
+   ./utils/interface_prepare.sh --interface "$slave2" --bond slave --bond-master "$interface" --no-restart
+   create_vfs "$slave2" "$vfs_num"
+   ./utils/interface_prepare.sh --interface "$interface" --ip "$host_ip" --netmask "$netmask" --bond master
+fi
 
 init_kubadmin
 

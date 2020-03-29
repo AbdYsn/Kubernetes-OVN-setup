@@ -1,44 +1,34 @@
-# a template to create deployments with sriov interface
-# daemonset version 3
-kind: Deployment
+kind: DaemonSet
 apiVersion: apps/v1
 metadata:
-  name: sriov-pod-{nodeName}
+  name: iperf-client-daemonset
   # namespace set up by install
   namespace: default
   annotations:
     kubernetes.io/description: |
       This daemonset creates pods that uses sriov vfs.
 spec:
-  progressDeadlineSeconds: 600
-  replicas: {replicas}
-  revisionHistoryLimit: 10
   selector:
     matchLabels:
-      name: {podName}
-  strategy:
-    rollingUpdate:
-      maxSurge: 25%
-      maxUnavailable: 25%
-    type: RollingUpdate
+      name: iperf-client-daemonset
   template:
     metadata:
-      name: {podName}
+      name: iperf-client-daemonset
       labels:
-        name: {podName}
-        app: {podName}
+        name: iperf-client-daemonset
+        app: iperf
       annotations:
         v1.multus-cni.io/default-network: sriov-ovn-1
     spec:
-      nodeSelector:
-            kubernetes.io/hostname: {nodeName}
+#      nodeSelector:
+#            kubernetes.io/hostname: {nodeName}
       containers:
       - image: iperf_image:latest
         command:
           - sleep
           - "3600"
         imagePullPolicy: IfNotPresent
-        name: {podName}
+        name: iperf-client-daemonset
         resources:
           requests:
             intel.com/sriov: '1'

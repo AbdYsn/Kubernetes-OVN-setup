@@ -3,7 +3,6 @@
 # it accepts two parameters, the first is the name of the interface and the
 # second is the number of vfs
 
-set -e
 set -o pipefail
 
 interface=""
@@ -12,6 +11,9 @@ vfs_num=""
 vendor_id=""
 vfs_pci_list=""
 interface_pci=""
+nm_managed="false"
+
+udev_rule_file='/etc/udev/rules.d/80-persistent-vf-config.rules'
 
 
 ##################################################
@@ -19,6 +21,7 @@ interface_pci=""
 ##################   input   #####################
 ##################################################
 ##################################################
+
 
 while test $# -gt 0; do
   case "$1" in
@@ -35,6 +38,11 @@ while test $# -gt 0; do
       shift
       ;;
 
+   --nm-managed)
+      nm_managed="true"
+      shift
+      ;;
+
    --help | -h)
       echo "
 switchdev_setup.sh -i <interface> -v <number of vfs>: create vfs on the \
@@ -47,6 +55,10 @@ enable the switchdev mode on.
 
         --vfs-num | -v) <vfs number>			The number of vfs \
 to create on the interface.
+
+	--nm-managed)					An option to manage \
+the vfs by the network manager. By default the vfs will be set to not be managed \
+by the network manager.
 
 "
       exit 0
@@ -148,6 +160,30 @@ switch_to_transport(){
    fi
 }
 
+set_unmanaged(){
+   is_managed=$1
+   if [[ "$is_managed" == "true" ]]
+   then
+      is_unmanaged="0"
+   elif [[ "$is_managed" == "false" ]]
+   then
+      is_unmanaged="1"
+   fi
+
+   if [[ ! -f "$udev_rule_file" ]]
+   then
+      touch "$udev_rule_file"
+   fi
+
+   check_line="`grep 'ENV{NM_UNMANAGED}' $udev_rule_file`"
+   if [[ -n $check_line ]]
+   then
+      sed -i "/ENV{NM_UNMANAGED}/d" "$udev_rule_file"
+   fi
+   echo "SUBSYSTEM==\"net\", ACTION==\"add\", ATTR{phys_switch_id}!=\"\", ATTR{phys_port_name}==\"pf*vf*\", ENV{NM_UNMANAGED}=\"$is_unmanaged\"" >> "$udev_rule_file"
+   udevadm control --reload-rules && udevadm trigger
+}
+
 
 ##################################################
 ##################################################
@@ -183,6 +219,10 @@ check_vendor
 ##################################################
 ##################################################
 
+
+set_unmanaged "$nm_managed"
+
+set -e
 
 configure_vfs
 

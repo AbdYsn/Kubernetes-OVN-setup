@@ -595,3 +595,7 @@ if [[ "$is_master" == "true" ]]
 then
    kubeadm token create --print-join-command   
 fi
+
+echo 'export KUBECONFIG=/etc/kubernetes/admin.conf'
+echo "if this is your first time running the script, a reboot "\
+"is required for the udev rules to apply."
